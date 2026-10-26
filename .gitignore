@@ -2,3 +2,10 @@ __pycache__/
 *.pyc
 .DS_Store
 build/
+dist/
+
+# réglages personnels : ne jamais les publier
+config.json
+config.default.json
+*.local.json
+mes-reglages*.json
