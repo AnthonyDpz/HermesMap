@@ -68,6 +68,12 @@ IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".svg", "
 AUDIO_EXT = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".opus"}
 VIDEO_EXT = media_tools.WEB_VIDEO_EXT | media_tools.OTHER_VIDEO_EXT
 DB_EXT = {".db", ".sqlite", ".sqlite3"}
+ACTIVE_EXT = {".html", ".htm", ".xhtml", ".shtml", ".svg", ".svgz", ".xml", ".xsl", ".xslt", ".mht", ".mhtml"}
+# page principale : pas d'intégration dans un autre site, pas de connexion vers l'extérieur
+INDEX_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+             "img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; "
+             "frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; "
+             "frame-ancestors 'none'")
 SF_DATALESS = 0x40000000  # macOS : fichier iCloud présent dans le cloud mais pas sur le disque
 SECRET_NAMES = {".env", "auth.json", "credentials.json", "secrets.json", "tokens.json"}
 SECRET_KEY_RE = re.compile(r"(key|token|secret|password|passwd|pwd|auth|bearer|cookie|session_id|private)", re.I)
@@ -907,6 +913,23 @@ def make_handler(app: App):
         def log_message(self, *a):
             pass
 
+        def end_headers(self):
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            super().end_headers()
+
+        def host_ok(self):
+            """Protection contre le « DNS rebinding » : seules les adresses locales de ce serveur sont acceptées
+            (un site qui ferait pointer son nom vers 127.0.0.1 enverrait son propre nom dans « Host »)."""
+            port = self.server.server_address[1]
+            allowed = {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}"}
+            if (self.headers.get("Host") or "").lower() not in allowed:
+                return False
+            origin = self.headers.get("Origin")
+            if origin and origin.lower() not in {"http://" + h for h in allowed}:
+                return False
+            return True
+
         def send_json(self, obj, code=200):
             data = json.dumps(obj, ensure_ascii=False).encode()
             self.send_response(code)
@@ -930,6 +953,10 @@ def make_handler(app: App):
             else:
                 self.send_response(200)
             self.send_header("Content-Type", ctype)
+            self.send_header("X-Frame-Options", "SAMEORIGIN")
+            if p.suffix.lower() in ACTIVE_EXT:
+                # HTML / SVG des notes : affichés sans pouvoir exécuter de script ni piloter l'app
+                self.send_header("Content-Security-Policy", "sandbox")
             self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Length", str(end - start + 1))
             self.end_headers()
@@ -947,6 +974,8 @@ def make_handler(app: App):
                     remaining -= len(chunk)
 
         def do_GET(self):
+            if not self.host_ok():
+                return self.send_json({"error": "adresse refusée"}, 403)
             u = urlparse(self.path)
             q = parse_qs(u.query)
             path = q.get("path", [""])[0]
@@ -958,6 +987,8 @@ def make_handler(app: App):
                     self.send_header("Content-Type", "text/html; charset=utf-8")
                     self.send_header("Content-Length", str(len(data)))
                     self.send_header("Cache-Control", "no-store")
+                    self.send_header("Content-Security-Policy", INDEX_CSP)
+                    self.send_header("X-Frame-Options", "DENY")
                     self.end_headers()
                     self.wfile.write(data)
                     return
@@ -1136,6 +1167,8 @@ def make_handler(app: App):
                     "parent": app.scanner.rel(p.parent), "md_count": n_md if kind == "dir" else 1}
 
         def do_POST(self):
+            if not self.host_ok():
+                return self.send_json({"error": "adresse refusée"}, 403)
             u = urlparse(self.path)
             try:
                 if self.headers.get("X-HM-Token") != TOKEN:
