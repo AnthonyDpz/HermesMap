@@ -6,6 +6,8 @@ SUPPORT="$HOME/Library/Application Support/hermes-map"
 LOG="$HOME/Library/Logs/Hermes Map.log"
 PORTFILE="$SUPPORT/port"
 mkdir -p "$SUPPORT" "$HOME/Library/Logs"
+# réglages fournis avec l'app (build_app.sh --config) : utilisés seulement s'il n'y en a pas encore
+[[ ! -f "$SUPPORT/config.json" && -f "$RES/config.default.json" ]] && cp "$RES/config.default.json" "$SUPPORT/config.json"
 
 # PATH du shell de connexion (pour trouver hermes, ffmpeg…), plus les emplacements habituels
 LOGIN_PATH="$(/bin/zsh -lc 'print -rn -- $PATH' 2>/dev/null)"
