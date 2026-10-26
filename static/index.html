@@ -1,0 +1,2046 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermes Map</title>
+<style>
+:root{
+  --bg:#0b0d12; --bg2:#12151d; --bg3:#1a1e29; --line:#262b38; --text:#e6e8ee; --muted:#8b92a5;
+  --accent:#f5b84b; --accent2:#7cc4ff; --danger:#ff7a7a; --panel-w:44vw;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+#app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+header{display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--bg2);z-index:5}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.brand .glyph{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(135deg,#f5b84b,#e66b3d);color:#1b1206;font-size:15px}
+.brand small{color:var(--muted);font-weight:400;max-width:28vw;overflow:hidden;text-overflow:ellipsis}
+.search{position:relative;flex:1;max-width:460px;margin-left:12px}
+.search input{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:8px 12px 8px 32px;outline:none}
+.search input:focus{border-color:var(--accent)}
+.search .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
+#results{position:absolute;top:42px;left:0;min-width:min(560px,90vw);background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:60vh;overflow:auto;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#results div{padding:7px 12px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
+#results div > span{flex:none;max-width:60%}
+#results div:hover,#results div.sel{background:var(--bg3)}
+#results .all{color:var(--accent);border-top:1px solid var(--line);font-size:13px}
+#results mark{background:rgba(245,184,75,.35);color:inherit}
+#results small{color:var(--muted);font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spacer{flex:1}
+.tbtn{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
+.tbtn:hover{border-color:#3a4152}
+.tbtn.on{border-color:var(--accent);color:var(--accent)}
+main{position:relative;display:flex;min-height:0}
+#graphWrap{position:relative;flex:1;min-width:0}
+#graph,#graph3d{position:absolute;inset:0}
+#labels3d{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#labels3d .l3{position:absolute;transform:translate(-50%,10px);font-size:12px;color:#e6e8ee;text-shadow:0 0 4px #000,0 0 8px #000;white-space:nowrap;font-weight:600}
+#labels3d .l3.root{font-size:16px;color:#f5b84b}
+#labels3d .l3.tag{color:#ffc1d6;font-weight:500}
+#legend{max-height:calc(100% - 24px);overflow:auto}
+#legend .lcol{position:absolute;top:6px;right:6px;padding:1px 7px;font-size:11px}
+#legend.collapsed{width:auto!important;padding:4px}
+#legend.collapsed > :not(.lcol){display:none}
+#legend.collapsed .lcol{position:static}
+#legend .hint{font-size:10.5px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin-left:4px}
+#legend .lbl{flex:1}
+#legend .eye{color:var(--muted);padding:0 2px;font-size:12px}
+#legend .eye:hover{color:var(--text)}
+#legend input{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;margin:0 0 6px;outline:none}
+.tagcloud{display:flex;flex-wrap:wrap;gap:4px}
+.tagchip{font-size:11.5px;padding:2px 8px;border-radius:12px;background:rgba(255,111,160,.1);border:1px solid rgba(255,111,160,.35);color:#ffc1d6;cursor:pointer}
+.tagchip:hover,.tagchip.on{background:rgba(255,111,160,.3);border-color:#ff6fa0}
+.tagchip small{color:#c98aa3;margin-left:4px}
+.tagchip.auto{background:rgba(124,196,255,.08);border-color:rgba(124,196,255,.35);color:#cfe7ff}
+.tagchip.auto small{color:#8fb3d1}
+.tagchip.auto:hover,.tagchip.auto.on{background:rgba(124,196,255,.25);border-color:#7cc4ff}
+.tagchip.zone{background:color-mix(in srgb,var(--zc) 14%,transparent);border-color:color-mix(in srgb,var(--zc) 55%,transparent);color:var(--zc)}
+.tagchip.zone small{color:inherit;opacity:.7}
+.tagchip.zone:hover,.tagchip.zone.on{background:color-mix(in srgb,var(--zc) 32%,transparent);border-color:var(--zc)}
+.tgtitle{font-size:10.5px;color:var(--muted);margin:6px 2px 4px}
+.ntags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+#legend{position:absolute;left:12px;bottom:12px;width:250px;background:rgba(18,21,29,.88);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;max-width:260px;backdrop-filter:blur(6px)}
+#legend .row{display:flex;align-items:center;gap:7px;padding:2px 4px;border-radius:5px;cursor:pointer}
+#legend .row:hover{background:var(--bg3)}
+#legend .row.off{opacity:.35}
+#legend .dot{width:10px;height:10px;border-radius:50%}
+#legend .count{margin-left:auto;color:var(--muted)}
+#legend h4{margin:2px 4px 6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+#stats{position:absolute;right:12px;bottom:12px;font-size:11.5px;color:var(--muted);background:rgba(18,21,29,.8);padding:5px 9px;border-radius:7px;border:1px solid var(--line)}
+#hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-size:12px;color:var(--muted);background:rgba(18,21,29,.85);padding:6px 12px;border-radius:20px;border:1px solid var(--line);pointer-events:none;transition:opacity .6s}
+#live{position:absolute;right:12px;top:12px;width:300px;background:rgba(18,21,29,.92);border:1px solid rgba(245,184,75,.35);border-radius:12px;padding:10px 12px;font-size:12.5px;backdrop-filter:blur(6px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:4}
+#live .lh{display:flex;align-items:center;gap:7px}
+#live .lh label{margin-left:auto;display:flex;align-items:center;gap:4px;color:var(--muted);cursor:pointer}
+#live .lh .tbtn{padding:2px 7px;font-size:11.5px}
+#live .dot{width:9px;height:9px;border-radius:50%;background:#5c6372}
+#live .dot.on{background:var(--accent);box-shadow:0 0 0 0 rgba(245,184,75,.7);animation:ping 1.3s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 9px rgba(245,184,75,0)}100%{box-shadow:0 0 0 0 rgba(245,184,75,0)}}
+#live .muted{color:var(--muted)}
+#live .lc{display:flex;gap:12px;margin:8px 0 6px;font-size:12px}
+#live .lf{display:flex;flex-direction:column;gap:1px;max-height:240px;overflow:auto}
+#live .li{display:flex;gap:7px;align-items:baseline;padding:3px 4px;border-radius:6px;cursor:pointer}
+#live .li:hover{background:var(--bg3)}
+#live .li .ln{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+#live .li small{color:var(--muted);font-size:11px;white-space:nowrap}
+#resizer{width:6px;cursor:col-resize;background:transparent;border-left:1px solid var(--line);flex:none}
+#resizer:hover{background:rgba(245,184,75,.25)}
+#panel{width:var(--panel-w);min-width:300px;max-width:80vw;flex:none;background:var(--bg2);display:flex;flex-direction:column;min-height:0}
+#panel.hidden,#resizer.hidden{display:none}
+.phead{padding:14px 18px 10px;border-bottom:1px solid var(--line)}
+.crumbs{font-family:var(--mono);font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px;align-items:center}
+.crumbs a{color:var(--muted);cursor:pointer;text-decoration:none;padding:1px 3px;border-radius:4px}
+.crumbs a:hover{color:var(--text);background:var(--bg3)}
+.ptitle{display:flex;align-items:center;gap:10px;margin-top:6px}
+.ptitle h2{font-size:19px;margin:0;font-weight:650;word-break:break-word}
+.ptitle .hbtn{margin-left:auto;border-color:rgba(245,184,75,.45);color:var(--accent);font-size:12.5px}
+.ptitle .hbtn:hover{background:rgba(245,184,75,.12)}
+.ptitle .hbtn.busy{animation:pulse 1.4s infinite}
+@keyframes pulse{50%{background:rgba(245,184,75,.2)}}
+#hmodal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
+#hmodal .box{width:min(860px,94vw);max-height:90vh;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#hmodal .hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+#hmodal .hd h3{margin:0;font-size:16px}
+#hmodal .hd .x{margin-left:auto}
+#hmodal .bd{padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+#hmodal .ft{display:flex;gap:8px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+#hmodal .ft .sp{flex:1}
+#hmodal textarea{width:100%;min-height:300px;background:#0e1118;border:1px solid var(--line);border-radius:8px;color:var(--text);font:12.5px/1.5 var(--mono);padding:10px;resize:vertical;outline:none}
+#hmodal textarea:focus{border-color:var(--accent)}
+#hmodal .tgt{font-size:13px;line-height:1.5}
+#hmodal .tgt code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 6px;border-radius:4px;word-break:break-all}
+#hmodal .note{font-size:12px;color:var(--muted)}
+#hmodal .warn{font-size:12.5px;color:var(--accent);background:rgba(245,184,75,.08);border:1px solid rgba(245,184,75,.3);border-radius:8px;padding:8px 10px}
+#hmodal .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:600}
+#hmodal .tbtn.danger{border-color:rgba(255,122,122,.5);color:var(--danger)}
+#hlog{background:#07090d;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;height:42vh;overflow:auto;margin:0;color:#c8ccd6}
+#hlog .me{color:var(--accent)}
+.hstate{font-size:12.5px;padding:2px 9px;border-radius:12px;border:1px solid var(--line)}
+.hstate.running{color:var(--accent);border-color:rgba(245,184,75,.5)}
+.hstate.done{color:#5fd3a6;border-color:rgba(95,211,166,.5)}
+.hstate.error,.hstate.stopped{color:var(--danger);border-color:rgba(255,122,122,.5)}
+.hchanges .item{font-size:13px}
+.hchanges .tagk{font-size:11px;border-radius:10px;padding:0 7px;margin-right:6px;border:1px solid}
+.hchanges .k-mod{color:var(--accent2);border-color:rgba(124,196,255,.5)}
+.hchanges .k-new{color:#5fd3a6;border-color:rgba(95,211,166,.5)}
+.hchanges .k-del{color:var(--danger);border-color:rgba(255,122,122,.5)}
+.hchanges .k-oth{color:var(--muted);border-color:var(--line)}
+pre.hdiff{background:#07090d;border:1px solid var(--line);border-radius:8px;padding:8px 0;font:12px/1.45 var(--mono);overflow:auto;max-height:46vh;margin:0}
+pre.hdiff span{display:block;padding:0 12px;white-space:pre-wrap;word-break:break-word}
+pre.hdiff .a{background:rgba(95,211,166,.12);color:#9be8c8}
+pre.hdiff .r{background:rgba(255,122,122,.12);color:#ffb0b0}
+pre.hdiff .h{color:var(--accent2)}
+.ptitle .close{margin-left:0}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:11.5px;color:var(--muted);background:var(--bg3);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+.chip.warn{color:var(--accent);border-color:rgba(245,184,75,.4)}
+.pbody{flex:1;overflow:auto;padding:16px 20px 40px}
+.section{margin:18px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);font-weight:600}
+.md{line-height:1.6;font-size:14.5px}
+.md h1,.md h2,.md h3{line-height:1.25;margin:1.2em 0 .5em}
+.md h1{font-size:1.5em}.md h2{font-size:1.25em;border-bottom:1px solid var(--line);padding-bottom:4px}.md h3{font-size:1.08em}
+.md a{color:var(--accent2)}
+.md code{font-family:var(--mono);font-size:.88em;background:var(--bg3);padding:1px 5px;border-radius:4px}
+.md pre{background:#0e1118;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto}
+.md pre code{background:none;padding:0}
+.md blockquote{border-left:3px solid var(--accent);margin:0;padding:2px 14px;color:#c4c9d6}
+.md table{border-collapse:collapse;display:block;overflow:auto}
+.md td,.md th{border:1px solid var(--line);padding:5px 9px}
+.md img{max-width:100%;border-radius:6px}
+.md .wl{color:var(--accent);cursor:pointer;border-bottom:1px dashed rgba(245,184,75,.5)}
+.fm{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:6px}
+.fm td{padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.fm td:first-child{color:var(--muted);font-family:var(--mono);font-size:12px;white-space:nowrap;width:1%}
+pre.code{font-family:var(--mono);font-size:12.5px;line-height:1.55;background:#0e1118;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0}
+.list{display:flex;flex-direction:column;gap:2px}
+.item{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13.5px}
+.item:hover{background:var(--bg3)}
+.item .ic{width:20px;text-align:center}
+.item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .sz{color:var(--muted);font-size:11.5px;font-family:var(--mono)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile,140px),1fr));gap:8px}
+.gallery figure{margin:0;background:var(--bg3);border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:zoom-in;position:relative}
+.gallery figure:hover{border-color:var(--accent)}
+.gallery .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#0e1118}
+.gallery .ph{width:100%;aspect-ratio:4/3;display:grid;place-items:center;font-size:30px;color:var(--muted);background:#0e1118}
+.gallery .badge{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.65);color:#fff;border-radius:12px;padding:1px 7px;font-size:11px;pointer-events:none}
+.gallery .play{position:absolute;top:calc(37.5% - 20px);left:calc(50% - 20px);width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:16px;pointer-events:none;transition:opacity .2s}
+.gallery figure.previewing .play{opacity:0}
+.gallery video.thumb{pointer-events:none}
+.gallery figcaption{font-size:11px;padding:4px 6px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;gap:6px}
+.gallery figcaption span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis}
+.filters{position:sticky;top:-16px;z-index:3;background:var(--bg2);margin:-16px -20px 10px;padding:12px 20px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.filters .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filters input{flex:1;min-width:160px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:6px 10px;outline:none}
+.filters input:focus{border-color:var(--accent)}
+.filters select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.fchip{background:var(--bg3);border:1px solid var(--line);border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer}
+.fchip.on{border-color:var(--accent);color:var(--accent)}
+.fchip small{color:var(--muted);margin-left:3px}
+.fcount{font-size:12px;color:var(--muted);margin-left:auto}
+.filters .mirror{font-size:12px;color:var(--muted);gap:10px;background:rgba(124,196,255,.06);border:1px solid rgba(124,196,255,.25);border-radius:8px;padding:6px 9px}
+.filters .mirror label{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text)}
+.filters .mirror input{flex:none;min-width:0;accent-color:var(--accent2)}
+.filters .mlink{color:var(--accent2);cursor:pointer;font-family:var(--mono);font-size:11.5px}
+.filters .mlink:hover{text-decoration:underline}
+.tbtn.mini{padding:2px 8px;font-size:11px;text-transform:none;letter-spacing:0}
+.gallery .badge.arch{left:auto;right:6px}
+.gallery .badge.gifb{top:auto;bottom:30px;left:6px;font-size:10px}
+.filters .opts{font-size:12px;color:var(--muted);gap:14px}
+.filters .opts label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.filters .opts input{flex:none;min-width:0;accent-color:var(--accent)}
+.fstatus{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.item .nm small.where{color:var(--muted);font-family:var(--mono);font-size:11px;margin-left:6px}
+.item .nm small.snip{display:block;color:var(--muted);font-size:11.5px;white-space:normal;margin-top:2px}
+.item .nm{white-space:normal}
+mark{background:rgba(245,184,75,.35);color:inherit;border-radius:2px;padding:0 1px}
+.more-btn{margin:10px auto 0;display:block}
+.back{display:none}
+.back.show{display:inline-block}
+.viewer img{max-width:100%;border-radius:8px;cursor:zoom-in;background:repeating-conic-gradient(#1a1e29 0 25%,#141720 0 50%) 0 0/20px 20px}
+.viewer iframe{width:100%;height:calc(100vh - 220px);border:1px solid var(--line);border-radius:8px;background:#fff}
+.viewer video,.viewer audio{width:100%}
+.refs .item .why{font-size:11px;color:var(--muted)}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg3)}
+.msg .role{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.msg.user{border-color:rgba(124,196,255,.35)}
+.msg.user .role{color:var(--accent2)}
+.msg.assistant .role{color:var(--accent)}
+.msg.tool{opacity:.85}
+.msg .md{font-size:13.5px}
+details.jl{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--bg3)}
+details.jl summary{padding:6px 10px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:0 0 8px 8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.dbtable{overflow:auto;border:1px solid var(--line);border-radius:8px;max-height:calc(100vh - 260px)}
+.dbtable table{border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+.dbtable th{position:sticky;top:0;background:var(--bg3);text-align:left}
+.dbtable td,.dbtable th{border-bottom:1px solid var(--line);padding:5px 8px;max-width:420px;vertical-align:top;white-space:pre-wrap;word-break:break-word}
+.empty{color:var(--muted);font-size:13px;padding:10px 0}
+.err{color:var(--danger)}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.93);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out}
+#lightbox .stage{max-width:94vw;max-height:84vh;display:flex;align-items:center;justify-content:center;cursor:default}
+#lightbox .stage img,#lightbox .stage video{max-width:94vw;max-height:84vh;object-fit:contain;border-radius:6px}
+#lightbox .stage audio{width:60vw}
+#lightbox .stage .vbox{display:flex;align-items:center;justify-content:center}
+#lightbox .stage .vbox video{max-width:94vw;max-height:84vh}
+#lightbox .stage.doc{width:min(1100px,94vw);height:84vh}
+#lightbox .docview{width:100%;height:100%;overflow:auto;border-radius:8px;background:var(--bg2);border:1px solid var(--line)}
+#lightbox .docview .ph{padding:30px}
+.docframe{width:100%;height:100%;border:0;background:#fff;border-radius:8px}
+.docpaper{background:#fff;color:#1d2230;padding:40px 56px;min-height:100%;font-family:Georgia,serif;line-height:1.55}
+.docpaper img{max-width:100%}
+.doctext{padding:20px 28px}
+.docthumb{max-width:60%;max-height:55vh;border-radius:6px;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-bottom:12px;background:#fff}
+.viewer .docpaper{border-radius:8px}
+.viewer .ph{color:var(--muted);text-align:center;padding:20px}
+.gallery.docs .thumb{object-fit:contain;background:#f4f4f2}
+.gallery .ph.doc{font-size:34px}
+.gallery .badge.ext{top:auto;bottom:30px;left:6px;font-size:10px;background:rgba(20,24,34,.8)}
+.gallery figure .selbox{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:6px;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.45);color:transparent;display:grid;place-items:center;font-size:13px;font-weight:700;z-index:3;opacity:0;transition:opacity .15s;cursor:pointer}
+.gallery figure:hover .selbox,.selecting .gallery figure .selbox{opacity:1}
+.gallery figure.sel{outline:3px solid var(--accent);outline-offset:-3px}
+.gallery figure.sel .selbox{background:var(--accent);border-color:var(--accent);color:#1b1206}
+.gallery figure .selbox ~ .badge:not(.arch):not(.ext):not(.gifb){left:34px}
+.item .isel{flex:none;accent-color:var(--accent);opacity:.35;margin:0}
+.item:hover .isel,.selecting .item .isel,.item.sel .isel{opacity:1}
+.item .isel-sp{width:13px;flex:none}
+.item.sel{background:rgba(245,184,75,.10)}
+#selbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid rgba(245,184,75,.4);background:rgba(18,21,29,.97);font-size:13px;flex-wrap:wrap}
+#selbar .sp{flex:1}
+#selbar .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:600}
+.mvin{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;color:var(--text)}
+.mvin:focus{border-color:var(--accent)}
+.mvquick{display:flex;flex-wrap:wrap;gap:5px}
+.mvrows{display:flex;flex-direction:column;gap:6px;max-height:38vh;overflow:auto}
+.mvrows.small{max-height:22vh}
+.mvrow{display:flex;gap:10px;align-items:center;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:6px}
+.mvrow img{width:64px;height:48px;object-fit:cover;border-radius:5px;flex:none;background:#0e1118}
+.mvrow .mvic{width:64px;text-align:center;font-size:24px;flex:none}
+.mvcol{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.mvcol small{font-family:var(--mono);font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mvto.ok{color:#5fd3a6}.mvto.bad{color:var(--danger)}
+.mvopt{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.mvopt input{accent-color:var(--accent)}
+.chip.link{cursor:pointer;color:var(--accent2);border-color:rgba(124,196,255,.4)}
+.chip.link:hover{background:rgba(124,196,255,.1)}
+#lightbox .ph{color:#ccc;font-size:15px;text-align:center}
+#lightbox .bar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(rgba(0,0,0,.7),transparent);cursor:default}
+#lightbox .bar .nm{flex:1;color:#eee;font-family:var(--mono);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lightbox .bar .tbtn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:#eee}
+#lightbox .cap{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:#aaa;font-size:12px;font-family:var(--mono);pointer-events:none}
+#lightbox .nav{position:absolute;top:50%;transform:translateY(-50%);font-size:34px;color:#fff;background:rgba(255,255,255,.08);border:0;border-radius:50%;width:52px;height:52px;cursor:pointer}
+#lightbox .prev{left:20px}#lightbox .next{right:20px}
+#tip{position:fixed;pointer-events:none;background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;display:none;z-index:40;max-width:340px}
+#tip small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px;margin-top:2px}
+#loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}
+
+/* ---- écran d'accueil / réglages ---- */
+#setup{position:fixed;inset:0;z-index:50;background:radial-gradient(1200px 600px at 20% 0%,#1b2030 0%,var(--bg) 60%);overflow:auto;display:flex;justify-content:center;padding:48px 16px}
+#setup .card{width:min(760px,100%);display:flex;flex-direction:column;gap:18px}
+#setup h1{margin:0;font-size:26px;display:flex;align-items:center;gap:10px}
+#setup h1 .glyph{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(135deg,#f5b84b,#e66b3d);color:#1b1206;font-size:19px}
+#setup .lead{color:var(--muted);margin:-6px 0 0;line-height:1.5}
+#setup section{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+#setup section h2{margin:0;font-size:15px;display:flex;gap:8px;align-items:baseline}
+#setup section h2 .n{color:var(--accent);font-family:var(--mono);font-size:12px}
+#setup .hint{color:var(--muted);font-size:13px;line-height:1.5;margin:0}
+#setup .opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--bg3)}
+#setup .opt:hover{border-color:#3a4152}
+#setup .opt.on{border-color:var(--accent);background:#221d12}
+#setup .opt input{margin-top:3px;accent-color:var(--accent)}
+#setup .opt .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+#setup .opt .t small{color:var(--muted);font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#setup .badge{font-size:11px;padding:1px 7px;border-radius:20px;background:var(--bg);border:1px solid var(--line);color:var(--muted);margin-left:6px}
+#setup .badge.bad{color:var(--danger);border-color:#5a2a2a}
+#setup .badge.ok{color:#5fd3a6;border-color:#24503f}
+#setup .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#setup input[type=text],#setup select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;min-width:0}
+#setup input[type=text]:focus,#setup select:focus{border-color:var(--accent)}
+#setup .chips{display:flex;flex-wrap:wrap;gap:5px}
+#setup .chips span{font-size:12px;padding:2px 8px;border-radius:12px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+#setup .warn{background:#2a1a1a;border:1px solid #5a2a2a;border-radius:10px;padding:12px 14px;line-height:1.55;font-size:13.5px}
+#setup .warn ol{margin:6px 0 0;padding-left:20px}
+#setup .ok{color:#5fd3a6}
+#setup .foot{display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap}
+#setup .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:650;padding:9px 18px}
+#setup details summary{cursor:pointer;color:var(--muted);font-size:13px}
+#setup details .grid{display:grid;grid-template-columns:max-content 1fr;gap:8px 12px;align-items:center;margin-top:10px;font-size:13px}
+#setup code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><div class="glyph">☤</div>Hermes Map <small id="rootPath"></small></div>
+    <div class="search">
+      <span class="ico">⌕</span>
+      <input id="q" placeholder="Rechercher partout (noms, dossiers, tags)…  ( / )" autocomplete="off">
+      <div id="results"></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="tbtn on" id="tRefs" title="Afficher les liens entre fichiers (références, mentions)">Liens</button>
+    <button class="tbtn on" id="tFiles" title="Afficher les fichiers (sinon seulement les dossiers)">Fichiers</button>
+    <button class="tbtn on" id="tLabels" title="Afficher les noms">Noms</button>
+    <button class="tbtn on" id="tTags" title="Afficher / masquer les tags (◆) sur la carte : ils relient des éléments de branches différentes">Tags</button>
+    <button class="tbtn" id="t3d" title="Basculer entre la carte 2D et la sphère 3D">◎ 3D</button>
+    <button class="tbtn on" id="tRotate" title="Rotation automatique de la sphère" style="display:none">⟳</button>
+    <button class="tbtn" id="tFit" title="Tout voir">⤢ Recentrer</button>
+    <button class="tbtn" id="tReload" title="Relire le dossier">↻</button>
+    <button class="tbtn" id="tFull" title="Plein écran (F)">⛶ Plein écran</button>
+    <button class="tbtn" id="tSettings" title="Réglages : dossier exploré, archive, Hermes">⚙</button>
+    <button class="tbtn" id="tQuit" title="Arrêter Hermes Map (sinon il s'arrête tout seul 2 minutes après la fermeture de la page)">⏻</button>
+  </header>
+  <main>
+    <div id="graphWrap">
+      <div id="graph"></div>
+      <div id="graph3d" style="display:none"></div>
+      <div id="labels3d" style="display:none"></div>
+      <div id="loading">Analyse des dossiers…</div>
+      <div id="hint">Clic sur un nœud pour lire son contenu · molette pour zoomer · glisser pour déplacer</div>
+      <div id="legend"></div>
+      <div id="stats"></div>
+      <div id="live" style="display:none"></div>
+    </div>
+    <div id="resizer" class="hidden"></div>
+    <aside id="panel" class="hidden">
+      <div class="phead">
+        <div class="crumbs" id="crumbs"></div>
+        <div class="ptitle"><button class="tbtn back" id="pback2" title="Revenir à l'écran précédent (Retour arrière)">←</button><span id="picon" style="font-size:20px"></span><h2 id="ptitle"></h2>
+          <button class="tbtn hbtn" id="phermes" title="Demander à Hermes de mettre à jour les notes .md à partir d'ici">☤ Mettre à jour avec Hermes</button>
+          <button class="tbtn close" id="pclose" title="Fermer (Échap)">✕</button></div>
+        <div class="meta" id="pmeta"></div>
+      </div>
+      <div class="pbody" id="pbody"></div>
+      <div id="selbar" style="display:none"></div>
+    </aside>
+  </main>
+</div>
+<div id="lightbox"><div class="bar"><span class="nm"></span><button class="tbtn" id="lbInfo" title="Afficher la fiche du fichier dans le panneau">Fiche</button><button class="tbtn" id="lbMove" title="Déplacer / renommer ce fichier (manuel)">✋ Déplacer…</button><button class="tbtn" id="lbHermes" title="Hermes analyse, renomme et range ce fichier">☤ Reclasser</button><button class="tbtn" id="lbApp" title="Ouvrir avec l'app par défaut du Mac">Ouvrir dans l'app</button><a class="tbtn" id="lbOpen" target="_blank" title="Ouvrir dans un nouvel onglet">↗</a><button class="tbtn" id="lbClose" title="Fermer (Échap)">✕</button></div><button class="nav prev">‹</button><div class="stage"></div><button class="nav next">›</button><div class="cap"></div></div>
+<div id="tip"></div>
+<div id="hmodal"><div class="box">
+  <div class="hd"><span style="font-size:18px">☤</span><h3 id="htitle">Mettre à jour avec Hermes</h3><span class="hstate" id="hstate" style="display:none"></span><button class="tbtn x" id="hclose" title="Fermer (Hermes continue en arrière-plan)">✕</button></div>
+  <div class="bd" id="hbody"></div>
+  <div class="ft" id="hfoot"></div>
+</div></div>
+
+<script src="/static/vendor/force-graph.min.js"></script>
+<script src="/static/vendor/3d-force-graph.min.js"></script>
+<script src="/static/vendor/marked.umd.js"></script>
+<script src="/static/vendor/purify.min.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const ICONS = {root:'☤',dir:'📁',markdown:'📝',json:'🧾',config:'⚙️',text:'📄',image:'🖼️',pdf:'📕',audio:'🎵',video:'🎬',db:'🗄️',secret:'🔐',icloud:'☁️',tag:'🏷️',office:'📑',binary:'📦',more:'…',skill:'🧩'};
+const PALETTE = ['#7cc4ff','#b48cff','#5fd3a6','#ff8a7a','#ffd36e','#6ee0e6','#9fd36b','#8aa2ff','#e0b48a','#f7a072','#a3e4b5','#c9b6ff'];
+const GROUP_LABELS = {memories:'Mémoires',skills:'Skills',sessions:'Sessions',cron:'Tâches planifiées',logs:'Logs',profiles:'Profils',hooks:'Hooks',gateway:'Passerelle',plugins:'Plugins',root:'Racine (fichiers)',hub:'Hub',state:'État',workspace:'Espace de travail',documents:'Documents',images:'Images'};
+
+let data = null, G = null;
+let showRefs = true, showFiles = true, showLabels = true, showTags = true;
+let hiddenGroups = new Set();
+let selected = null, hoverNode = null;
+let hl = new Set(), hlLinks = new Set();
+let groupColor = {};
+let byId = new Map();
+let neighbors = new Map();
+let currentImages = [], lbIndex = 0, lbList = [];
+let panelPath = null, panelStack = [], dirState = null;
+let refAlpha = .45;
+let mode = '2d', G3 = null, g3Nodes = new Map(), autoRotate = true;
+const TAG_COLOR = '#ff6fa0', AUTO_TAG_COLOR = '#7cc4ff';
+const ACT = {read:{c:'#7cc4ff', ttl:6, label:'lit', icon:'👁'}, write:{c:'#f5b84b', ttl:12, label:'écrit', icon:'✏️'}, create:{c:'#5fd3a6', ttl:15, label:'crée', icon:'✨'}, move:{c:'#ff8a7a', ttl:15, label:'déplace', icon:'📦'}};
+let activity = new Map(), liveOn = false, liveFeed = [], followCam = true, lastFollow = 0, liveTimer = null;
+
+const fmtSize = n => n==null ? '' : n<1024 ? n+' o' : n<1048576 ? (n/1024).toFixed(1)+' Ko' : (n/1048576).toFixed(1)+' Mo';
+const fmtDate = t => t ? new Date(t*1000).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}) : '';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iconFor = n => n.skill ? ICONS.skill : (ICONS[n.kind] || '📄');
+const raw = p => '/api/raw?path=' + encodeURIComponent(p);
+const idOf = x => typeof x==='object' && x ? x.id : x;
+const lkey = l => idOf(l.source) + '>' + idOf(l.target);
+let CFG = {zone_prefix:'', archive_dir:null, hermes:{}};
+const stripPrefix = t => { const p = CFG.zone_prefix || ''; return p && String(t).startsWith(p) ? String(t).slice(p.length) : String(t); };
+const zoneName = g => GROUP_LABELS[g] || stripPrefix(g);
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const normTxt = t => String(t||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+const relWhere = (where, base) => { if (!base) return where || '/'; return where===base ? '.' : where.startsWith(base+'/') ? '…/' + where.slice(base.length+1) : where; };
+function hlText(text, q){
+  const words = normTxt(q).split(/\s+/).filter(w => w.length > 1);
+  if (!words.length) return esc(text);
+  const n = normTxt(text); const marks = new Array(text.length).fill(false);
+  words.forEach(w => { let i = n.indexOf(w); while (i >= 0){ for (let k=i;k<i+w.length;k++) marks[k]=true; i = n.indexOf(w, i+w.length); } });
+  let out = '', on = false;
+  for (let i=0;i<text.length;i++){ if (marks[i]!==on){ out += marks[i] ? '<mark>' : '</mark>'; on = marks[i]; } out += esc(text[i]); }
+  return out + (on ? '</mark>' : '');
+}
+async function fetchGraph(refresh=false){ return (await fetch('/api/graph' + (refresh ? '?refresh=1' : ''))).json(); }
+
+function indexData(){
+  byId = new Map(data.nodes.map(n => [n.id, n]));
+  neighbors = new Map(data.nodes.map(n => [n.id, new Set()]));
+  data.nodes.forEach(n => n.deg = 0);
+  data.links.forEach(l => {
+    const s = idOf(l.source), t = idOf(l.target);
+    neighbors.get(s)?.add(t); neighbors.get(t)?.add(s);
+    const a = byId.get(s), b = byId.get(t); if (a) a.deg++; if (b) b.deg++;
+  });
+}
+
+async function load(refresh=false){
+  const prev = data ? data.scanned_at : 0;
+  $('#loading').style.display='grid';
+  try { CFG = await (await fetch('/api/config')).json(); } catch(e){}
+  let g = await fetchGraph(refresh);
+  if (g.setup){ $('#loading').style.display='none'; return showSetup(g); }
+  // attendre que l'arborescence soit prête (le serveur analyse en arrière-plan)
+  while (g.pending || (refresh && g.scanned_at === prev)){
+    $('#loading').textContent = g.status || 'Analyse des dossiers…';
+    await sleep(700);
+    g = await fetchGraph();
+  }
+  if (data && refresh){
+    // garder la disposition actuelle : les nœuds déjà connus reprennent leur place
+    const old = new Map(data.nodes.map(n => [n.id, n]));
+    g.nodes.forEach(n => { const o = old.get(n.id); if (o && o.x !== undefined){ n.x = o.x; n.y = o.y; if (o.fx !== undefined && !o._pin){ n.fx = o.fx; n.fy = o.fy; } } });
+    g.nodes.forEach(n => { if (n.x === undefined){ const par = old.get(n.id.split('/').slice(0,-1).join('/')); if (par && par.x !== undefined){ n.x = par.x + (Math.random()-.5)*30; n.y = par.y + (Math.random()-.5)*30; } } });
+  }
+  data = g;
+  $('#rootPath').textContent = data.root;
+  const groups = [...new Set(data.nodes.map(n => n.group))].filter(x => x !== 'root' && x !== '#tags').sort();
+  groupColor = {root:'#e6e8ee', '#tags': TAG_COLOR};
+  groups.forEach((x,i) => groupColor[x] = PALETTE[i % PALETTE.length]);
+  if (!refresh) g3Nodes = new Map();
+  indexData();
+  buildLegend();
+  render();
+  $('#loading').style.display='none';
+  setTimeout(()=>$('#hint').style.opacity=0, 6000);
+  if (!data.refs_done) waitRefs(data.scanned_at);
+  if (!refresh){ let m = '2d'; try { m = localStorage.getItem('hm-mode') || '2d'; } catch(e){} if (m==='3d') setMode('3d'); }
+}
+
+// les liens entre fichiers et les tags arrivent dans un 2e temps : on les ajoute sans tout redessiner
+async function waitRefs(stamp){
+  while (true){
+    await sleep(1500);
+    const g = await fetchGraph();
+    $('#stats').textContent = (g.status || '') + ' (les liens et tags apparaîtront à la fin)';
+    if (g.refs_done){
+      g.nodes.forEach(n => { if (!byId.has(n.id)) data.nodes.push(n); else if (n.tags) byId.get(n.id).tags = n.tags; });
+      indexData();
+      const extra = g.links.filter(l => (l.type==='ref' || l.type==='tag') && byId.has(l.source) && byId.has(l.target));
+      data.links = data.links.concat(extra);
+      data.refs_done = true;
+      indexData(); buildLegend(); render();
+      return;
+    }
+  }
+}
+
+function visibleData(){
+  const keep = n => {
+    if (n.kind==='root') return true;
+    if (n.kind==='tag') return showTags;
+    if (hiddenGroups.has(n.group)) return false;
+    if (!showFiles && n.kind!=='dir' && n.kind!=='more') return false;
+    return true;
+  };
+  const nodes = data.nodes.filter(keep);
+  const ids = new Set(nodes.map(n=>n.id));
+  const links = data.links.filter(l => (showRefs || l.type!=='ref') && ids.has(idOf(l.source)) && ids.has(idOf(l.target)));
+  // un tag qui n'est plus relié à rien de visible disparaît aussi
+  const linked = new Set(); links.forEach(l => { if (l.type==='tag') linked.add(idOf(l.source)); });
+  return {nodes: nodes.filter(n => n.kind!=='tag' || linked.has(n.id)), links};
+}
+
+function nodeR(n){
+  if (n.kind==='root') return 14;
+  if (n.kind==='tag') return 4 + Math.min(9, Math.sqrt(n.count||1)*1.5);
+  if (n.kind==='dir') return 5 + Math.min(8, Math.sqrt(n.deg||1)*1.6) + (n.depth===1?3:0);
+  if (n.kind==='more') return 3;
+  return 3 + Math.min(5, Math.sqrt(n.deg||1));
+}
+
+function linkRGBA(l, alpha){
+  if (l.type==='live') return `rgba(95,211,166,${Math.max(alpha, .85)})`;
+  const c = l.type==='ref' ? '245,184,75' : l.type==='tag' ? '255,111,160' : '160,170,195';
+  return `rgba(${c},${alpha})`;
+}
+function linkColorFor(l){
+  const on = hlLinks.size===0 || hlLinks.has(lkey(l));
+  if (!on) return linkRGBA(l, .04);
+  if (hlLinks.size) return linkRGBA(l, l.type==='tree' ? .7 : .95);
+  return linkRGBA(l, l.type==='ref' ? refAlpha : l.type==='tag' ? .18 : .22);
+}
+
+function resizeGraph(){
+  const el = mode==='3d' ? $('#graph3d') : $('#graph');
+  const w = $('#graphWrap').clientWidth, h = $('#graphWrap').clientHeight;
+  if (mode==='3d' && G3) G3.width(w).height(h);
+  else if (G) G.width(w).height(h);
+}
+
+function render(){
+  const vd = visibleData();
+  const nRefs = vd.links.filter(l=>l.type==='ref').length;
+  refAlpha = nRefs > 1500 ? .12 : nRefs > 500 ? .25 : .45;
+  $('#stats').textContent = `${vd.nodes.length} nœuds · ${nRefs} liens · ${vd.nodes.filter(n=>n.kind==='tag').length} tags${data.truncated?' · (certains dossiers résumés)':''}`;
+  if (mode==='3d') return render3d(vd);
+  const el = $('#graph');
+  if (!G){
+    G = ForceGraph()(el)
+      .backgroundColor('#0b0d12')
+      .nodeId('id')
+      .nodeRelSize(1)
+      .nodeVal(n => nodeR(n)**2)
+      .linkSource('source').linkTarget('target')
+      .linkColor(linkColorFor)
+      .linkWidth(l => l.type==='live' ? 2.2 : hlLinks.has(lkey(l)) ? 2 : (l.type==='ref' ? 1.1 : .8))
+      .linkLineDash(l => l.type==='ref' ? [3,3] : l.type==='tag' ? [1,3] : null)
+      .linkDirectionalParticles(l => l.type==='live' ? 4 : (l.type!=='tree' && hlLinks.has(lkey(l))) ? 3 : 0)
+      .linkDirectionalParticleWidth(l => l.type==='live' ? 3.5 : 2.2)
+      .linkDirectionalParticleSpeed(l => l.type==='live' ? .012 : .006)
+      .linkDirectionalParticleColor(l => l.type==='live' ? '#5fd3a6' : l.type==='tag' ? TAG_COLOR : '#f5b84b')
+      .nodeCanvasObject(drawNode)
+      .nodePointerAreaPaint((n, color, ctx) => { ctx.fillStyle=color; ctx.beginPath(); ctx.arc(n.x,n.y,nodeR(n)+3,0,2*Math.PI); ctx.fill(); })
+      .onNodeHover(n => { hoverNode = n||null; el.style.cursor = n ? 'pointer':'default'; showTip(n); })
+      .onNodeClick(n => selectNode(n.id, false))
+      .onBackgroundClick(() => { clearHL(); })
+      .onNodeDragEnd(n => { n.fx = n.x; n.fy = n.y; })
+      .cooldownTicks(300)
+      .warmupTicks(40);
+    G.d3Force('charge').strength(n => n.kind==='root' ? -600 : n.kind==='dir' ? -140 : n.kind==='tag' ? -120 : -45);
+    G.d3Force('link').distance(l => l.type==='ref' ? 90 : l.type==='tag' ? 70 : (byId.get(idOf(l.target))?.kind==='dir' ? 55 : 28))
+      .strength(l => l.type==='live' ? 0 : l.type==='ref' ? .04 : l.type==='tag' ? .03 : .9);
+    window.addEventListener('resize', resizeGraph);
+    el.addEventListener('mousemove', e => { tipPos = [e.clientX, e.clientY]; moveTip(); });
+    let fitted=false;
+    G.onEngineStop(() => { if(!fitted){ G.zoomToFit(600, 60); fitted=true; } });
+  }
+  G.graphData(vd);
+  resizeGraph();
+}
+
+function drawNode(n, ctx, scale){
+  const r = nodeR(n);
+  const dim = hl.size>0 && !hl.has(n.id);
+  const col = groupColor[n.group] || '#aaa';
+  ctx.globalAlpha = dim && !activity.has(n.id) ? .12 : 1;
+  if (n.kind==='tag'){
+    // losange rose pour les tags
+    ctx.beginPath(); ctx.moveTo(n.x, n.y-r); ctx.lineTo(n.x+r, n.y); ctx.lineTo(n.x, n.y+r); ctx.lineTo(n.x-r, n.y); ctx.closePath();
+    ctx.fillStyle = n.auto ? 'rgba(124,196,255,.22)' : 'rgba(255,111,160,.25)'; ctx.fill(); ctx.lineWidth = Math.max(1.4, 2/scale); ctx.strokeStyle = n.auto ? AUTO_TAG_COLOR : TAG_COLOR; ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2*Math.PI);
+    if (n.kind==='dir' || n.kind==='root'){
+      ctx.fillStyle = n.kind==='root' ? '#f5b84b' : col; ctx.fill();
+      ctx.lineWidth = 1.5/scale; ctx.strokeStyle = '#0b0d12'; ctx.stroke();
+    } else if (n.kind==='more' || n.kind==='icloud' || n.cloud){
+      ctx.fillStyle = '#3a4152'; ctx.fill();
+    } else {
+      ctx.fillStyle = '#0b0d12'; ctx.fill();
+      ctx.lineWidth = Math.max(1.2, 2/scale); ctx.strokeStyle = col; ctx.stroke();
+      if (n.kind==='image'){ ctx.fillStyle = col; ctx.beginPath(); ctx.arc(n.x,n.y,r*.45,0,2*Math.PI); ctx.fill(); }
+    }
+  }
+  if (n.skill){ ctx.lineWidth = 2/scale; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.arc(n.x,n.y,r+2.5/scale,0,2*Math.PI); ctx.stroke(); }
+  const act = activity.get(n.id);
+  if (act){
+    const ph = (performance.now()/1000 * 2.2) % 1;              // onde qui s'élargit
+    const c = ACT[act.kind].c;
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(n.x, n.y, r + 3/scale + ph * 22/scale, 0, 2*Math.PI);
+    ctx.strokeStyle = c; ctx.lineWidth = 2.2/scale; ctx.globalAlpha = 1 - ph; ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(n.x, n.y, r + 2.5/scale, 0, 2*Math.PI); ctx.strokeStyle = c; ctx.lineWidth = 2.5/scale; ctx.stroke();
+    ctx.shadowColor = c; ctx.shadowBlur = 18; ctx.beginPath(); ctx.arc(n.x, n.y, r*.6, 0, 2*Math.PI); ctx.fillStyle = c; ctx.fill(); ctx.shadowBlur = 0;
+  }
+  if (selected === n.id){
+    ctx.lineWidth = 3/scale; ctx.strokeStyle = '#fff';
+    ctx.beginPath(); ctx.arc(n.x,n.y,r+5/scale,0,2*Math.PI); ctx.stroke();
+  }
+  // libellés : toujours pour racine/dossiers de 1er niveau/tags, sinon selon le zoom
+  const important = activity.has(n.id) || n.kind==='root' || n.kind==='tag' || (n.kind==='dir' && n.depth<=1) || selected===n.id || hoverNode===n || (hl.size && hl.has(n.id));
+  const showAt = n.kind==='dir' ? 1.1 : 2.2;
+  if (showLabels && (important || scale > showAt)){
+    const fs = (n.kind==='root'? 15 : n.kind==='dir' || n.kind==='tag' ? 12 : 10.5) / Math.min(scale, 2.4) * (important && scale<1 ? 1.25 : 1);
+    ctx.font = `${n.kind==='dir'||n.kind==='root'||n.kind==='tag' ? 600 : 400} ${fs}px -apple-system, Inter, sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    const label = n.name.length>32 ? n.name.slice(0,30)+'…' : n.name;
+    ctx.lineWidth = 3/scale; ctx.strokeStyle='rgba(11,13,18,.9)'; ctx.strokeText(label, n.x, n.y + r + 2/scale);
+    ctx.fillStyle = dim ? 'rgba(230,232,238,.3)' : n.kind==='tag' ? (n.auto ? '#cfe7ff' : '#ffc1d6') : (n.kind==='dir'||n.kind==='root' ? '#f1f2f6' : '#b9bfcd');
+    ctx.fillText(label, n.x, n.y + r + 2/scale);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------------- Vue 3D (sphère) ----------------
+function nodeColor3d(n){
+  const act = activity.get(n.id);
+  if (act) return (Math.floor(performance.now()/350) % 2) ? ACT[act.kind].c : '#ffffff';
+  if (hl.size && !hl.has(n.id)) return '#22262f';
+  if (n.kind==='root') return '#f5b84b';
+  if (n.kind==='tag') return n.auto ? AUTO_TAG_COLOR : TAG_COLOR;
+  if (n.kind==='more' || n.kind==='icloud' || n.cloud) return '#4a5163';
+  return groupColor[n.group] || '#aaa';
+}
+function render3d(vd){
+  const el = $('#graph3d');
+  // on réutilise les mêmes objets 3D d'un rendu à l'autre pour garder les positions
+  const nodes = vd.nodes.map(n => { let o = g3Nodes.get(n.id); if (!o){ o = {id:n.id}; g3Nodes.set(n.id, o); } o.ref = n; return o; });
+  const links = vd.links.map(l => ({source: idOf(l.source), target: idOf(l.target), type: l.type}));
+  if (!G3){
+    G3 = ForceGraph3D({controlType: 'orbit'})(el)
+      .backgroundColor('#05060a')
+      .showNavInfo(false)
+      .nodeId('id')
+      .nodeRelSize(3.2)
+      .nodeVal(o => { const n = o.ref; return n.kind==='root' ? 30 : n.kind==='tag' ? 3 + Math.min(12, (n.count||1)*.4) : n.kind==='dir' ? 2 + Math.min(10, (n.deg||1)*.15) : .7; })
+      .nodeColor(o => nodeColor3d(o.ref))
+      .nodeOpacity(.92)
+      .nodeResolution(12)
+      .nodeLabel(o => `<div style="background:#12151d;border:1px solid #262b38;border-radius:8px;padding:6px 9px;font:12px -apple-system,sans-serif;color:#e6e8ee">${iconFor(o.ref)} <b>${esc(o.ref.name)}</b><br><span style="color:#8b92a5;font-family:monospace;font-size:11px">${esc(o.ref.path||'/')}</span></div>`)
+      .linkColor(linkColorFor)
+      .linkOpacity(1)
+      .linkWidth(l => l.type==='live' ? 1.6 : hlLinks.has(lkey(l)) ? 1.2 : 0)
+      .linkDirectionalParticles(l => l.type==='live' ? 4 : (l.type!=='tree' && hlLinks.has(lkey(l))) ? 3 : 0)
+      .linkDirectionalParticleWidth(1.6)
+      .linkDirectionalParticleColor(l => l.type==='live' ? '#5fd3a6' : l.type==='tag' ? TAG_COLOR : '#f5b84b')
+      .onNodeClick(o => selectNode(o.id, true))
+      .onNodeHover(o => { el.style.cursor = o ? 'pointer' : 'default'; })
+      .onBackgroundClick(() => clearHL())
+      .cooldownTicks(400)
+      .warmupTicks(30);
+    G3.d3Force('charge').strength(o => o.ref.kind==='root' ? -400 : o.ref.kind==='dir' ? -90 : o.ref.kind==='tag' ? -80 : -25);
+    G3.d3Force('link').distance(l => l.type==='tree' ? (byId.get(idOf(l.target))?.kind==='dir' ? 40 : 18) : 60)
+      .strength(l => l.type==='live' ? 0 : l.type==='tree' ? .9 : .03);
+    const c = G3.controls(); c.autoRotate = autoRotate; c.autoRotateSpeed = .8;
+    c.addEventListener && c.addEventListener('start', () => { /* l'utilisateur tourne : on garde sa vue */ });
+    requestAnimationFrame(drawLabels3d);
+  }
+  G3.graphData({nodes, links});
+  resizeGraph();
+}
+
+// étiquettes HTML posées par-dessus la scène 3D (racine, zones, tags, sélection)
+function drawLabels3d(){
+  if (mode !== '3d' || !G3){ return; }
+  const box = $('#labels3d');
+  const cam = G3.camera().position;
+  const want = [];
+  G3.graphData().nodes.forEach(o => {
+    const n = o.ref; if (o.x === undefined) return;
+    const imp = activity.has(n.id) || n.kind==='root' || (n.kind==='dir' && n.depth<=1) || n.id===selected || (n.kind==='tag' && (n.count||0) >= 2) || (hl.size && hl.has(n.id) && hl.size < 60);
+    if (showLabels && imp) want.push(o);
+  });
+  let html = '';
+  want.slice(0, 160).forEach(o => {
+    const p = G3.graph2ScreenCoords(o.x, o.y, o.z);
+    const d = Math.hypot(cam.x-o.x, cam.y-o.y, cam.z-o.z);
+    const op = Math.max(.25, Math.min(1, 900 / d));
+    const n = o.ref, dim = hl.size && !hl.has(n.id);
+    const act = activity.get(n.id);
+    html += `<span class="l3 ${n.kind}" style="left:${p.x}px;top:${p.y}px;opacity:${act ? 1 : dim ? .2 : op}${act ? ';color:' + ACT[act.kind].c : ''}">${act ? ACT[act.kind].icon + ' ' : ''}${esc(n.kind==='dir' && n.depth===1 ? zoneName(n.name) : n.name)}</span>`;
+  });
+  box.innerHTML = html;
+  requestAnimationFrame(drawLabels3d);
+}
+
+function setMode(m){
+  mode = m;
+  $('#t3d').classList.toggle('on', m==='3d');
+  $('#tRotate').style.display = m==='3d' ? '' : 'none';
+  $('#graph').style.display = m==='3d' ? 'none' : '';
+  $('#graph3d').style.display = m==='3d' ? '' : 'none';
+  $('#labels3d').style.display = m==='3d' ? '' : 'none';
+  if (m==='3d'){ G && G.pauseAnimation(); G3 && G3.resumeAnimation(); render(); requestAnimationFrame(drawLabels3d); }
+  else { G3 && G3.pauseAnimation(); G && G.resumeAnimation(); render(); }
+  try { localStorage.setItem('hm-mode', m); } catch(e){}
+}
+
+function refreshStyles(){
+  if (mode==='3d' && G3){ G3.nodeColor(G3.nodeColor()).linkColor(G3.linkColor()).linkWidth(G3.linkWidth()).linkDirectionalParticles(G3.linkDirectionalParticles()); }
+}
+
+let tipPos=[0,0];
+function showTip(n){
+  const t=$('#tip');
+  if(!n){ t.style.display='none'; return; }
+  t.innerHTML = `${iconFor(n)} <b>${esc(n.name)}</b><small>${n.kind==='tag' ? (n.count+' fichier(s)') : esc(n.path||'/')}${n.size!=null?' · '+fmtSize(n.size):''}</small>`;
+  t.style.display='block'; moveTip();
+}
+function moveTip(){ const t=$('#tip'); t.style.left=(tipPos[0]+14)+'px'; t.style.top=(tipPos[1]+14)+'px'; }
+
+// ---------------- Barre latérale : zones (tags de dossier) + tags du contenu ----------------
+let tagQuery = '', tagShowAll = false;
+let legendCollapsed = false; try { legendCollapsed = !!localStorage.getItem('hm-legend'); } catch(e){}
+function zoneTagsHtml(groups, counts, tq){
+  const zs = groups.filter(g => !tq || normTxt(zoneName(g)).includes(normTxt(tq)));
+  if (!zs.length) return '';
+  return `<div class="tgtitle">Zones</div><div class="tagcloud">` + zs.map(g =>
+    `<span class="tagchip zone ${selected===g?'on':''}" data-zone="${esc(g)}" style="--zc:${groupColor[g]}" title="Voir tout ${esc(zoneName(g))}">${esc(zoneName(g))}<small>${counts[g]}</small></span>`).join('') + '</div>';
+}
+function tagGroup(title, list, limit){
+  if (!list.length) return '';
+  return `<div class="tgtitle">${title}</div><div class="tagcloud">` + list.slice(0, limit).map(t =>
+    `<span class="tagchip ${t.auto?'auto':''} ${selected===t.id?'on':''}" data-id="${esc(t.id)}" title="${t.auto ? 'Présent dans ' + esc((t.zones||[]).map(zoneName).join(', ')) : 'Tag écrit dans tes notes'}">${esc(t.name)}<small>${t.count}</small></span>`).join('') + '</div>';
+}
+function buildLegend(){
+  const counts = {};
+  data.nodes.forEach(n => { if (n.kind!=='root' && n.kind!=='tag') counts[n.group]=(counts[n.group]||0)+1; });
+  const groups = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  const tags = data.nodes.filter(n => n.kind==='tag').sort((a,b) => (b.count||0)-(a.count||0) || a.name.localeCompare(b.name));
+  const tq = tagQuery.toLowerCase();
+  const tagsShown = tags.filter(t => !tq || t.name.toLowerCase().includes(tq));
+  const limit = tagShowAll ? tagsShown.length : 30;
+  $('#legend').classList.toggle('collapsed', legendCollapsed);
+  $('#legend').innerHTML = `<button class="tbtn lcol" id="lcol" title="Replier / déplier">${legendCollapsed ? '▸ Zones & tags' : '▾'}</button>` +
+    '<h4>Zones <span class="hint">clic = voir · œil = masquer</span></h4>' + groups.map(g =>
+      `<div class="row ${hiddenGroups.has(g)?'off':''}" data-g="${esc(g)}"><span class="dot" style="background:${groupColor[g]}"></span><span class="lbl">${esc(zoneName(g))}</span><span class="count">${counts[g]}</span><span class="eye" title="Masquer / afficher">${hiddenGroups.has(g)?'◌':'◉'}</span></div>`).join('')
+    + `<h4 style="margin-top:10px">Tags ${tags.length ? `<span class="hint">${tags.length} · clic = voir les éléments liés</span>` : ''}</h4>`
+    + (tags.length || groups.length
+        ? `<input id="tagq" placeholder="Chercher un tag…" value="${esc(tagQuery)}" autocomplete="off">`
+          + zoneTagsHtml(groups, counts, tq)
+          + tagGroup('Dans tes notes', tagsShown.filter(t => !t.auto), limit)
+          + tagGroup('Mots récurrents dans les noms', tagsShown.filter(t => t.auto), limit)
+          + (tagsShown.length > limit ? `<button class="tbtn" id="tagAll" style="margin-top:6px;font-size:12px">Voir les ${tagsShown.length} tags</button>` : '')
+        : `<div class="hint" style="padding:2px 4px">${data.refs_done ? 'Aucun tag trouvé.' : 'Calcul des tags…'}</div>`)
+    + '<h4 style="margin-top:10px">Formes</h4><div class="row" style="cursor:default;flex-wrap:wrap">● dossier ○ fichier ◎ skill <span style="color:#ff6fa0">◆</span> tag de note <span style="color:#7cc4ff">◆</span> tag auto <span style="color:#f5b84b">┄</span> lien</div>';
+  $('#lcol').onclick = () => { legendCollapsed = !legendCollapsed; try{ localStorage.setItem('hm-legend', legendCollapsed?'1':''); }catch(e){} buildLegend(); };
+  $('#legend').querySelectorAll('.row[data-g]').forEach(r => {
+    const g = r.dataset.g;
+    r.querySelector('.eye').onclick = e => { e.stopPropagation(); hiddenGroups.has(g) ? hiddenGroups.delete(g) : hiddenGroups.add(g); buildLegend(); render(); };
+    r.onclick = () => { if (hiddenGroups.has(g)){ hiddenGroups.delete(g); buildLegend(); render(); } if (byId.has(g)) selectNode(g, true); };
+  });
+  $('#legend').querySelectorAll('.tagchip[data-zone]').forEach(c => c.onclick = () => {
+    const g = c.dataset.zone;
+    if (hiddenGroups.has(g)){ hiddenGroups.delete(g); buildLegend(); render(); }
+    selectNode(g, true);
+  });
+  $('#legend').querySelectorAll('.tagchip[data-id]').forEach(c => c.onclick = () => {
+    if (!showTags){ showTags = true; $('#tTags').classList.add('on'); render(); }
+    setTimeout(() => selectNode(c.dataset.id, true), 60);
+  });
+  const tqEl = $('#tagq');
+  if (tqEl) tqEl.oninput = () => { tagQuery = tqEl.value; const pos = tqEl.selectionStart; buildLegend(); const e2=$('#tagq'); e2.focus(); e2.setSelectionRange(pos,pos); };
+  $('#tagAll') && ($('#tagAll').onclick = () => { tagShowAll = true; buildLegend(); });
+}
+
+function clearHL(){ selected=null; hl.clear(); hlLinks.clear(); G && G.nodeColor(G.nodeColor()); refreshStyles(); buildLegendSel(); }
+function buildLegendSel(){ document.querySelectorAll('#legend .tagchip').forEach(c => c.classList.toggle('on', (c.dataset.id||c.dataset.zone)===selected)); }
+
+function highlight(id){
+  hl = new Set([id, ...(neighbors.get(id)||[])]);
+  hlLinks = new Set();
+  data.links.forEach(l => { const s = idOf(l.source), t = idOf(l.target); if (s===id || t===id) hlLinks.add(s+'>'+t); });
+  refreshStyles(); buildLegendSel();
+}
+
+function selectNode(id, center=true){
+  if (id==='') id='/';
+  const n = byId.get(id);
+  if (n && n.kind==='more'){ openPanel(n.path || '/'); return; }
+  selected = id;
+  highlight(id);
+  const wasHidden = $('#panel').classList.contains('hidden');
+  openPanel(id==='/' ? '' : id);
+  // cadrer après l'ouverture du panneau (qui réduit la largeur de la carte)
+  if (center) setTimeout(() => focusNode(id), wasHidden ? 80 : 0);
+}
+
+function focusNode(id){
+  const nn = byId.get(id);
+  if (nn && nn.kind==='tag' && hl.size > 1){
+    if (mode==='3d' && G3) G3.zoomToFit(1000, 60, o => hl.has(o.id));
+    else if (G) G.zoomToFit(800, 80, n => hl.has(n.id));
+    return;
+  }
+  {
+    if (mode==='3d' && G3){
+      const o = g3Nodes.get(id);
+      if (o && o.x !== undefined){
+        const dist = 280, r = Math.hypot(o.x, o.y, o.z) || 1, k = 1 + dist / r;
+        autoRotate = false; G3.controls().autoRotate = false; $('#tRotate').classList.remove('on');
+        G3.cameraPosition({x: o.x*k, y: o.y*k, z: o.z*k}, o, 1200);
+      }
+    } else if (G){
+      const gn = G.graphData().nodes.find(x => x.id===id);
+      if (gn){ G.centerAt(gn.x, gn.y, 700); if (G.zoom()<1.6) G.zoom(2.2, 700); }
+    }
+  }
+}
+
+// ---------------- Panneau de droite ----------------
+async function openPanel(path, opts={}){
+  if (panelPath !== null && panelPath !== path && !opts.back){
+    panelStack.push({path: panelPath, scroll: $('#pbody').scrollTop,
+                     dir: dirState && dirState.path===panelPath ? {...dirState, info:null} : null});
+    if (panelStack.length > 50) panelStack.shift();
+  }
+  panelPath = path;
+  $('#phermes').style.display = (path && !path.startsWith('#tag:')) ? '' : 'none';
+  $('#pback2').classList.toggle('show', panelStack.length > 0);
+  $('#panel').classList.remove('hidden'); $('#resizer').classList.remove('hidden');
+  setTimeout(resizeGraph, 0);
+  const body = $('#pbody');
+  body.innerHTML = '<div class="empty">Chargement…</div>';
+  const r = await fetch('/api/node?path=' + encodeURIComponent(path));
+  const info = await r.json();
+  if (info.error){ body.innerHTML = `<div class="err">${esc(info.error)}</div>`; return; }
+  const node = byId.get(path||'/') || {kind:info.kind};
+  const k0 = info.kind;
+  // fil d'Ariane
+  const parts = k0==='tag' ? [] : (info.path||'').split('/').filter(Boolean);
+  let acc = '';
+  $('#crumbs').innerHTML = `<a data-p="/">☤ ${esc(data.title)}</a>` + parts.map((p,i) => {
+    acc += (i?'/':'') + p; return ` / <a data-p="${esc(acc)}">${esc(p)}</a>`; }).join('');
+  if (k0==='tag') $('#crumbs').innerHTML += ' / Tags' + (node.auto ? ' automatiques' : '');
+  $('#crumbs').querySelectorAll('a').forEach(a => a.onclick = () => selectNode(a.dataset.p));
+  $('#picon').textContent = iconFor({...node, kind:info.kind});
+  $('#ptitle').textContent = info.path ? info.name : (data.title || 'Racine');
+  const chips = [];
+  chips.push(kindLabel(info.kind, node.skill));
+  if (info.kind!=='dir' && info.kind!=='tag') chips.push(fmtSize(info.size));
+  if (info.children_total!=null) chips.push(info.children_total + ' éléments' + (info.mirror ? ` · ${info.mirror.total} dans l'archive` : ''));
+  if (info.mtime) chips.push('modifié ' + fmtDate(info.mtime));
+  $('#pmeta').innerHTML = chips.map(c=>`<span class="chip">${esc(c)}</span>`).join('') + (info.cloud?'<span class="chip warn">☁️ dans iCloud, téléchargement à l\'ouverture</span>':'') + (info.masked?'<span class="chip warn">🔐 valeurs masquées</span>':'') + (info.truncated?'<span class="chip warn">tronqué à 2 Mo</span>':'');
+  const zone = node.group && node.group!=='root' && node.group!=='#tags' ? node.group : null;
+  if (node.kind==='tag' && node.auto){
+    $('#pmeta').innerHTML += `<div class="ntags"><span class="chip">mot présent dans les noms de ${node.count} élément(s), dans :</span>${(node.zones||[]).map(z => `<span class="tagchip" data-zone="${esc(z)}" style="background:transparent;border-color:${groupColor[z]};color:${groupColor[z]}">${esc(zoneName(z))}</span>`).join('')}</div>`;
+    $('#pmeta').querySelectorAll('[data-zone]').forEach(c => c.onclick = () => selectNode(c.dataset.zone, true));
+  }
+  const ntags = (node.tags||[]);
+  if (zone || ntags.length){
+    $('#pmeta').innerHTML += `<div class="ntags">${zone ? `<span class="tagchip" data-zone="${esc(zone)}" style="background:transparent;border-color:${groupColor[zone]};color:${groupColor[zone]}">${esc(zoneName(zone))}</span>` : ''}${ntags.map(t => `<span class="tagchip" data-id="${esc('#tag:'+t)}">#${esc(t)}</span>`).join('')}</div>`;
+    $('#pmeta').querySelectorAll('.tagchip').forEach(c => c.onclick = () => {
+      if (c.dataset.zone) return selectNode(c.dataset.zone, true);
+      if (!showTags){ showTags = true; $('#tTags').classList.add('on'); render(); }
+      setTimeout(() => selectNode(c.dataset.id, true), 60);
+    });
+  }
+
+  let html = '';
+  const k = info.kind;
+  if (k==='dir' || k==='tag'){
+    if (info.readme){ html += `<div class="section">${esc(info.readme.name)}</div>` + renderMarkdown(info.readme.text, info.path); }
+    const prev = (opts.restore && opts.restore.dir) || {};
+    dirState = {path: info.path, info, q: prev.q||'', type: prev.type||'all', size: prev.size||'all',
+                sort: prev.sort||'name', mediaLimit: prev.mediaLimit||120, listLimit: prev.listLimit||400,
+                deep: prev.deep ?? true, content: prev.content || false, results: null,
+                withArchive: prev.withArchive ?? true, sel: new Set()};
+    html = dirFiltersHtml(info) + html + `<div id="dirMedia"></div><div id="dirList"></div>`;
+  } else if (k==='image'){
+    currentImages = [info.path];
+    html += `<div class="viewer"><img src="${raw(info.path)}" data-i="0" alt=""></div>`;
+  } else if (k==='pdf'){
+    html += `<div class="viewer"><iframe src="${raw(info.path)}"></iframe></div>`;
+  } else if (k==='video'){
+    html += `<div class="viewer" id="pvideo"></div>`;
+  } else if (k==='office'){
+    html += `<div class="viewer" id="pdoc"></div>`;
+  } else if (k==='audio'){
+    html += `<div class="viewer"><audio controls src="${raw(info.path)}"></audio></div>`;
+  } else if (k==='db'){
+    html += `<div class="section">Tables</div><div class="tabs">` + info.tables.map(t =>
+      `<button class="tbtn" data-t="${esc(t.name)}">${esc(t.name)} <span style="color:var(--muted)">${t.rows??''}</span></button>`).join('') + `</div><div id="dbview" class="empty">Choisis une table.</div>`;
+  } else if (k==='icloud'){
+    html += `<div class="empty">☁️ ${esc(info.note)}</div>`;
+  } else if (info.text != null){
+    html += renderText(info);
+  } else {
+    html += `<div class="empty">Fichier binaire — aperçu non disponible. <a href="${raw(info.path)}" target="_blank" style="color:var(--accent2)">Ouvrir / télécharger</a></div>`;
+  }
+  html += renderRefs(path||'/');
+  body.innerHTML = html;
+  if (k !== 'dir' && k !== 'tag'){ dirState = null; renderSelBar(); }
+  wirePanel(body, info);
+  if (k === 'video') playVideo($('#pvideo'), {path: info.path, name: info.name});
+  if (k === 'office') renderDocInto($('#pdoc'), {path: info.path, name: info.name});
+  if (k !== 'dir' && k !== 'tag' && k !== 'root' && info.path){
+    $('#pmeta').insertAdjacentHTML('beforeend', `<span class="chip link" data-app="${esc(info.path)}" title="Ouvrir avec l'app par défaut du Mac">↗ Ouvrir dans l'app</span><span class="chip link" data-finder="${esc(info.path)}">Finder</span>`);
+    wireAppButtons($('#pmeta'));
+  }
+  if (k === 'dir' || k === 'tag'){ wireFilters(); renderDirView(); }
+  body.scrollTop = (opts.restore && opts.restore.scroll) || 0;
+}
+
+function panelBack(){
+  const prev = panelStack.pop();
+  if (!prev) return;
+  if (byId.has(prev.path || '/')){ selected = prev.path || '/'; highlight(selected); }
+  openPanel(prev.path, {back:true, restore:prev});
+}
+
+// ---------------- Vue dossier : filtres, galerie, liste ----------------
+const CATS = [['all','Tout'],['dir','Dossiers'],['image','Images'],['video','Vidéos'],['audio','Audio'],['doc','Documents'],['other','Autres']];
+function catOf(c){
+  if (c.kind==='dir') return 'dir';
+  if (c.kind==='image' || c.kind==='video' || c.kind==='audio') return c.kind;
+  if (['markdown','text','config','json','pdf','office'].includes(c.kind)) return 'doc';
+  const e = ((c.name||'').split('.').pop()||'').toLowerCase();
+  if (VIDEO_RE.test('.'+e)) return 'video';
+  if (c.kind==='icloud'){
+    if (['jpg','jpeg','png','gif','webp','heic'].includes(e)) return 'image';
+    if (DOC_RE.test('.'+e)) return 'doc'; }
+  return 'other';
+}
+const VIDEO_RE = /\.(mp4|m4v|webm|mov|ogv|avi|mkv|wmv|flv|mpg|mpeg|m2v|3gp|3g2|ts|mts|m2ts|vob|divx|xvid|rm|rmvb|asf|f4v)$/i;
+const WEBVIDEO_RE = /\.(mp4|m4v|webm|mov|ogv)$/i;
+const DOC_RE = /\.(pdf|txt|md|markdown|json|jsonl|ya?ml|csv|log|rtf|rtfd|docx?|odt|pages|xlsx?|ods|numbers|pptx?|odp|key|epub)$/i;
+const isMedia = c => ['image','video','audio'].includes(catOf(c));
+const isViewable = c => isMedia(c) || catOf(c)==='doc';
+const extOf = c => ((c.name||'').split('.').pop()||'').toUpperCase().slice(0,5);
+const SIZES = [['all','Toutes tailles'],['s','< 1 Mo'],['m','1 – 10 Mo'],['l','10 – 100 Mo'],['xl','> 100 Mo']];
+const sizeOk = (c, f) => f==='all' || c.kind==='dir' || (f==='s' ? c.size<1048576 : f==='m' ? c.size>=1048576 && c.size<10485760 : f==='l' ? c.size>=10485760 && c.size<104857600 : c.size>=104857600);
+
+function dirFiltersHtml(info){
+  const isTag = info.kind==='tag';
+  return `<div class="filters">
+    <div class="row"><input id="fq" placeholder="${isTag ? 'Filtrer ces éléments…' : 'Chercher ici et dans tous les sous-dossiers…'}" autocomplete="off">
+      <select id="fsort" title="Trier"><option value="name">Nom A→Z</option><option value="name-desc">Nom Z→A</option>
+        <option value="size-desc">Plus gros d'abord</option><option value="size">Plus petits d'abord</option>
+        <option value="date-desc">Plus récents</option><option value="date">Plus anciens</option></select>
+      <select id="fsize" title="Taille">${SIZES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div>
+    ${isTag ? '' : `<div class="row opts">
+      <label title="Décoché : seulement les éléments directement dans ce dossier"><input type="checkbox" id="fdeep"> Sous-dossiers inclus</label>
+      <label title="Cherche aussi le texte à l'intérieur des notes (.md, .txt, .json…) — plus lent"><input type="checkbox" id="fcontent"> Dans le contenu des fichiers</label>
+      <span class="fstatus" id="fstatus"></span></div>`}
+    ${info.mirror ? `<div class="row mirror"><label title="Les fichiers de ce dossier sont rangés dans l'archive miroir"><input type="checkbox" id="farch"> 🗄 Inclure l'archive miroir</label>
+      <a class="mlink" data-open="${esc(info.mirror.path)}">${esc(info.mirror.path)}</a><span class="fstatus">${info.mirror.total} élément(s)${info.mirror.described ? ` · ${info.mirror.described} décrit(s) dans les catalogues` : ''}</span></div>` : ''}
+    ${info.brain ? `<div class="row mirror"><span>📝 Notes liées à ce dossier :</span><a class="mlink" data-open="${esc(info.brain)}">${esc(info.brain)}</a></div>` : ''}
+    <div class="row" id="fcats"></div>
+  </div>`;
+}
+
+function wireFilters(){
+  const st = dirState;
+  $('#fq').value = st.q; $('#fsort').value = st.sort; $('#fsize').value = st.size;
+  if ($('#fdeep')){ $('#fdeep').checked = st.deep; $('#fcontent').checked = st.content; }
+  if ($('#farch')){ $('#farch').checked = st.withArchive; $('#farch').onchange = () => { st.withArchive = $('#farch').checked; st.mediaLimit=120; runSearch(); }; }
+  document.querySelectorAll('.filters .mlink').forEach(a => a.onclick = () => { const p = a.dataset.open; byId.has(p) ? selectNode(p, true) : openPanel(p); });
+  let t;
+  const changed = () => { st.mediaLimit=120; st.listLimit=400; runSearch(); };
+  $('#fq').oninput = () => { clearTimeout(t); t = setTimeout(() => { st.q = $('#fq').value; changed(); }, 220); };
+  $('#fq').onkeydown = e => { if (e.key==='Escape'){ $('#fq').value=''; st.q=''; changed(); e.stopPropagation(); $('#fq').blur(); } };
+  $('#fsort').onchange = () => { st.sort = $('#fsort').value; renderDirView(); };
+  $('#fsize').onchange = () => { st.size = $('#fsize').value; renderDirView(); };
+  if ($('#fdeep')){
+    $('#fdeep').onchange = () => { st.deep = $('#fdeep').checked; changed(); };
+    $('#fcontent').onchange = () => { st.content = $('#fcontent').checked; if (st.content) st.deep = $('#fdeep').checked = true; changed(); };
+  }
+  if (st.q && st.deep && st.info.kind!=='tag') runSearch(); else renderDirView();
+}
+
+// recherche récursive côté serveur (tout l'arbre sous ce dossier, même ce qui n'est pas sur la carte)
+let searchSeq = 0;
+async function runSearch(){
+  const st = dirState; if (!st) return;
+  const q = st.q.trim();
+  if (!q || !st.deep || st.info.kind==='tag'){ st.results = null; return renderDirView(); }
+  const my = ++searchSeq;
+  $('#fstatus') && ($('#fstatus').textContent = st.content ? 'Recherche (noms + contenu)…' : 'Recherche…');
+  let r;
+  while (true){
+    r = await (await fetch(`/api/search?q=${encodeURIComponent(q)}&path=${encodeURIComponent(st.info.path||'')}&content=${st.content?1:0}&limit=3000`)).json();
+    if (my !== searchSeq || dirState !== st) return;
+    if (!r.pending) break;
+    $('#fstatus').textContent = 'Indexation en cours… ' + (r.status||'');
+    await sleep(1200);
+  }
+  st.results = r.results || [];
+  st.resultsInfo = r;
+  if (st.info.mirror && st.withArchive){
+    const r2 = await (await fetch(`/api/search?q=${encodeURIComponent(q)}&path=${encodeURIComponent(st.info.mirror.path)}&content=${st.content?1:0}&limit=3000`)).json();
+    if (my !== searchSeq || dirState !== st) return;
+    (r2.results || []).forEach(x => { x.archive = true; st.results.push(x); });
+    st.resultsInfo = {...r, total: (r.total||0) + (r2.total||0), content_hits: (r.content_hits||0) + (r2.content_hits||0), truncated: r.truncated || r2.truncated};
+  }
+  renderDirView();
+}
+
+function filteredChildren(){
+  const st = dirState;
+  const fromSearch = st.results != null;
+  const base = fromSearch ? st.results
+    : st.info.children.concat(st.info.mirror && st.withArchive ? st.info.mirror.items : []);
+  const words = fromSearch ? [] : normTxt(st.q.trim()).split(/\s+/).filter(Boolean);
+  const pre = base.filter(c => sizeOk(c, st.size) && words.every(w => normTxt(c.name).includes(w)));
+  st.counts = {all: pre.length};
+  pre.forEach(c => { const k = catOf(c); st.counts[k] = (st.counts[k]||0)+1; });
+  let list = pre.filter(c => st.type==='all' || catOf(c)===st.type);
+  const by = {
+    'name': (a,b) => a.name.localeCompare(b.name, 'fr', {numeric:true}),
+    'name-desc': (a,b) => b.name.localeCompare(a.name, 'fr', {numeric:true}),
+    'size': (a,b) => (a.size||0)-(b.size||0), 'size-desc': (a,b) => (b.size||0)-(a.size||0),
+    'date': (a,b) => a.mtime-b.mtime, 'date-desc': (a,b) => b.mtime-a.mtime }[st.sort];
+  // résultats de recherche : d'abord ceux dont le NOM correspond, puis ceux trouvés via un dossier parent, puis le contenu
+  const mrank = c => ({nom:0, chemin:1, contenu:2})[c.match] ?? 0;
+  list.sort((a,b) => (fromSearch && st.sort==='name' ? mrank(a)-mrank(b) : 0)
+    || (st.sort.startsWith('name') ? (a.kind==='dir'?0:1)-(b.kind==='dir'?0:1) : 0) || by(a,b));
+  return list;
+}
+
+function renderCats(){
+  const st = dirState, c = st.counts || {};
+  $('#fcats').innerHTML = CATS.filter(([k]) => k==='all' || c[k] || st.type===k).map(([k,l]) =>
+    `<span class="fchip ${st.type===k?'on':''}" data-k="${k}">${l}<small>${c[k]||0}</small></span>`).join('') + '<span class="fcount" id="fcount"></span>';
+  document.querySelectorAll('#fcats .fchip').forEach(ch => ch.onclick = () => { st.type = ch.dataset.k; st.mediaLimit=120; renderDirView(); });
+}
+
+const thumbUrl = p => '/api/thumb?path=' + encodeURIComponent(p);
+let tileObserver = null, vidObserver = null;
+let animOn = true; try { animOn = localStorage.getItem('hm-anim') !== 'off'; } catch(e){}
+const isAnimated = c => /\.(gif|webp|apng|avif)$/i.test(c.name || c.path || '');
+
+function renderDirView(){
+  const st = dirState; if (!st) return;
+  const list = filteredChildren();
+  renderCats();
+  const media = list.filter(c => catOf(c)==='image' || catOf(c)==='video');
+  if (st.results != null){
+    const r = st.resultsInfo || {};
+    $('#fcount').textContent = `${list.length} résultat(s)`;
+    $('#fstatus') && ($('#fstatus').textContent = `${r.total} trouvé(s) dans ${st.info.path ? 'ce dossier et ses sous-dossiers' : 'tous les dossiers'}`
+      + (r.truncated ? ' · 3 000 premiers affichés' : '') + (st.content ? ` · ${r.content_hits} dans le contenu${r.content_done ? '' : ' (recherche arrêtée après 8 s, affine les mots)'}` : ''));
+  } else {
+    const totalHere = st.info.children.length + (st.info.mirror && st.withArchive ? st.info.mirror.items.length : 0);
+    $('#fcount').textContent = `${list.length} / ${totalHere}` + (st.info.children_total > st.info.children.length ? ` (sur ${st.info.children_total})` : '');
+    $('#fstatus') && ($('#fstatus').textContent = '');
+  }
+  lbList = list.filter(isViewable);
+  // galerie
+  let h = '';
+  if (media.length && st.type !== 'dir'){
+    const shown = media.slice(0, st.mediaLimit);
+    const nAnim = media.filter(c => isAnimated(c) || catOf(c)==='video').length;
+    h += `<div class="section" style="display:flex;align-items:center;gap:8px">Médias (${media.length}) · survol d'une vidéo = aperçu, clic = plein écran${nAnim ? `<span style="flex:1"></span><button class="tbtn mini" id="animT" title="Faire jouer les GIF / WebP animés et les vidéos (sans le son) directement dans la galerie">${animOn ? '⏸ Animations : oui' : '▶ Animations : non'}</button>` : ''}</div><div class="gallery">` + shown.map(c => {
+      const vid = catOf(c)==='video';
+      const anim = animOn && isAnimated(c);
+      const inner = c.cloud
+        ? `<div class="ph" title="Dans iCloud : téléchargé seulement à l'ouverture">☁️</div>`
+        : `<img class="thumb" data-src="${anim ? raw(c.path) : thumbUrl(c.path)}" data-raw="${raw(c.path)}" data-vid="${vid?1:''}" alt="">`;
+      const tip = descText(c);
+      return `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-vid="${vid?1:''}" data-cloud="${c.cloud?1:''}" title="${esc((tip ? tip + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${inner}${vid?`<span class="play">▶</span><span class="badge">${WEBVIDEO_RE.test(c.name) ? 'vidéo' : 'vidéo ' + esc(extOf(c))}</span>`:''}${c.archive ? '<span class="badge arch" title="Stocké dans l\'archive miroir">🗄</span>' : ''}${isAnimated(c) && !vid ? '<span class="badge gifb">GIF</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.series ? c.desc.series + ' · ' : '')}${esc(c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`;
+    }).join('') + '</div>';
+    if (media.length > shown.length) h += `<button class="tbtn more-btn" id="moreMedia">Afficher ${Math.min(120, media.length-shown.length)} de plus (${media.length-shown.length} restants)</button>`;
+  }
+  // galerie des documents (aperçu de la 1re page)
+  const docs = list.filter(c => catOf(c)==='doc');
+  if (docs.length && st.type !== 'dir'){
+    const shownD = docs.slice(0, st.docLimit || 60);
+    h += `<div class="section">Documents (${docs.length}) · clic = lire ici, sans quitter le dossier</div><div class="gallery docs">` + shownD.map(c =>
+      `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-doc="1" title="${esc((descText(c) ? descText(c) + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${c.cloud ? `<div class="ph">☁️</div>` : `<img class="thumb" data-src="${thumbUrl(c.path)}" data-raw="" alt="">`}<span class="badge ext">${esc(extOf(c))}</span>${c.archive ? '<span class="badge arch">🗄</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.title ? c.desc.title : c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`).join('') + '</div>';
+    if (docs.length > shownD.length) h += `<button class="tbtn more-btn" id="moreDocs">Afficher ${Math.min(60, docs.length-shownD.length)} de plus (${docs.length-shownD.length} restants)</button>`;
+  }
+  $('#dirMedia').innerHTML = h;
+  // liste
+  const shownList = list.slice(0, st.listLimit);
+  $('#dirList').innerHTML = `<div class="section">Contenu</div><div class="list">` + (shownList.length ? shownList.map(c =>
+    `<div class="item ${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-media="${isViewable(c)?1:''}">${c.kind!=='dir' ? `<input type="checkbox" class="isel" data-sel="${esc(c.path)}" ${st.sel.has(c.path) ? 'checked' : ''} title="Sélectionner">` : '<span class="isel-sp"></span>'}<span class="ic">${iconFor(byId.get(c.path)||c)}</span><span class="nm">${c.archive ? '<span title="Archive miroir">🗄 </span>' : ''}${hlText(c.name, st.q)}${c.where!=null && (st.results!=null || st.info.kind==='tag' || c.archive) ? ` <small class="where">${esc((w => w === '.' ? '' : w)(c.archive && st.info.mirror ? relWhere(c.where, st.info.mirror.path) : relWhere(c.where, st.info.path)))}</small>` : ''}${c.snippet ? `<small class="snip">…${hlText(c.snippet, st.q)}…</small>` : ''}${descText(c) ? `<small class="snip">${esc(descText(c).slice(0, 220))}</small>` : ''}</span><span class="sz">${c.cloud?'☁️ ':''}${c.kind==='dir'?'':fmtSize(c.size)}</span></div>`).join('')
+    : `<div class="empty">${st.info.children.length || (st.info.mirror && st.info.mirror.items.length) ? 'Aucun élément ne correspond aux filtres.' : (st.info.mirror && !st.withArchive ? 'Dossier vide : coche « Inclure l\'archive miroir » pour voir ses médias.' : 'Dossier vide')}</div>`) + '</div>'
+    + (list.length > shownList.length ? `<button class="tbtn more-btn" id="moreList">Afficher la suite (${list.length-shownList.length})</button>` : '');
+  wireDirView();
+}
+
+function descText(c){
+  const d = c.desc; if (!d) return '';
+  let host = ''; if (d.url){ try { host = '🔗 ' + new URL(d.url).hostname.replace(/^www\./, ''); } catch(e){} }
+  const head = [d.title, d.series, d.silo, d.character, d.artist && ('par ' + d.artist), d.pages && (d.pages + ' p.'), host].filter(Boolean).join(' · ');
+  return head + (d.description ? (head ? ' — ' : '') + d.description : '');
+}
+function selItems(){
+  const st = dirState; if (!st) return [];
+  const all = (st.results || []).concat(st.info.children, st.info.mirror ? st.info.mirror.items : []);
+  const seen = new Set(); const out = [];
+  all.forEach(c => { if (st.sel.has(c.path) && !seen.has(c.path)){ seen.add(c.path); out.push(c); } });
+  return out;
+}
+function renderSelBar(){
+  const st = dirState, bar = $('#selbar');
+  if (!st || !st.sel.size){ bar.style.display = 'none'; $('#pbody').classList.remove('selecting'); return; }
+  $('#pbody').classList.add('selecting');
+  bar.style.display = '';
+  bar.innerHTML = `<b>${st.sel.size}</b> sélectionné(s) <button class="tbtn mini" id="selAll">Tout (affichés)</button><button class="tbtn mini" id="selNone">Aucun</button><span class="sp"></span>
+    <button class="tbtn" id="selMove" title="Choisir toi-même le dossier et le nom (instantané, sans IA)">✋ Déplacer / renommer…</button>
+    <button class="tbtn primary" id="selHermes" title="Hermes analyse, renomme, range et met à jour les index">☤ Reclasser avec Hermes</button>`;
+  $('#selAll').onclick = () => { filteredChildren().forEach(c => { if (c.kind!=='dir') st.sel.add(c.path); }); renderDirView(); };
+  $('#selNone').onclick = () => { st.sel.clear(); renderDirView(); };
+  $('#selMove').onclick = () => openMoveDialog(selItems());
+  $('#selHermes').onclick = () => openReclassDialog(selItems());
+}
+function wireDirView(){
+  const st = dirState;
+  const toggleSel = (p, on) => { (on ?? !st.sel.has(p)) ? st.sel.add(p) : st.sel.delete(p);
+    document.querySelectorAll(`[data-sel="${CSS.escape(p)}"]`).forEach(x => { const host = x.closest('figure, .item'); host && host.classList.toggle('sel', st.sel.has(p)); if (x.type === 'checkbox') x.checked = st.sel.has(p); });
+    renderSelBar(); };
+  document.querySelectorAll('#dirMedia .selbox').forEach(b => b.onclick = e => { e.stopPropagation(); toggleSel(b.dataset.sel); });
+  document.querySelectorAll('#dirList .isel').forEach(b => b.onclick = e => { e.stopPropagation(); toggleSel(b.dataset.sel, b.checked); });
+  renderSelBar();
+  $('#animT') && ($('#animT').onclick = () => { animOn = !animOn; try { localStorage.setItem('hm-anim', animOn ? 'on' : 'off'); } catch(e){} renderDirView(); });
+  $('#moreMedia') && ($('#moreMedia').onclick = () => { st.mediaLimit += 120; renderDirView(); });
+  $('#moreDocs') && ($('#moreDocs').onclick = () => { st.docLimit = (st.docLimit || 60) + 60; renderDirView(); });
+  $('#moreList') && ($('#moreList').onclick = () => { st.listLimit += 400; renderDirView(); });
+  document.querySelectorAll('#dirList .item[data-p]').forEach(it => it.onclick = e => {
+    if ((st.sel.size || e.metaKey || e.ctrlKey || e.shiftKey) && it.querySelector('.isel')){ toggleSel(it.dataset.p); return; }
+    const p = it.dataset.p;
+    if (it.dataset.media) return openMedia(p);
+    const c = (st.results || st.info.children.concat(st.info.mirror ? st.info.mirror.items : [])).find(x => x.path === p);
+    if (c && c.desc && c.desc.url && /\.(url|webloc)$/i.test(c.name)) return window.open(c.desc.url, '_blank', 'noopener');
+    if (byId.has(p)) selectNode(p); else openPanel(p);
+  });
+  // miniatures chargées seulement quand elles deviennent visibles
+  tileObserver && tileObserver.disconnect();
+  tileObserver = new IntersectionObserver(entries => entries.forEach(en => {
+    if (!en.isIntersecting) return;
+    const img = en.target; tileObserver.unobserve(img);
+    img.onerror = () => {
+      img.onerror = null;
+      if (img.closest('figure[data-doc]')){ const ph = document.createElement('div'); ph.className = 'ph doc'; ph.textContent = '📄'; img.replaceWith(ph); return; }
+      if (img.dataset.vid){ // pas de miniature système : première image de la vidéo
+        const v = document.createElement('video');
+        v.className='thumb'; v.muted=true; v.preload='metadata'; v.src = img.dataset.raw + '#t=0.5';
+        img.replaceWith(v);
+      } else img.src = img.dataset.raw;
+    };
+    img.src = img.dataset.src;
+  }), {root: $('#pbody'), rootMargin: '300px'});
+  document.querySelectorAll('#dirMedia img.thumb[data-src]').forEach(img => tileObserver.observe(img));
+  // vidéos : en boucle, sans le son, seulement quand elles sont à l'écran (bouton Animations)
+  vidObserver && vidObserver.disconnect();
+  vidObserver = new IntersectionObserver(entries => entries.forEach(en => {
+    const f = en.target;
+    if (en.isIntersecting){
+      let v = f.querySelector('video.auto');
+      if (!v){ v = document.createElement('video'); v.className = 'thumb auto'; v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'metadata'; v.src = raw(f.dataset.p); v.style.cssText = 'position:absolute;top:0;left:0'; f.prepend(v); f.classList.add('previewing'); v.onerror = () => { v.remove(); f.classList.remove('previewing'); }; }
+      v.play().catch(()=>{});
+    } else { const v = f.querySelector('video.auto'); if (v) v.pause(); }
+  }), {root: $('#pbody'), rootMargin: '100px'});
+  if (animOn) document.querySelectorAll('#dirMedia figure[data-vid="1"]:not([data-cloud="1"])').forEach(f => { if (WEBVIDEO_RE.test(f.dataset.p)) vidObserver.observe(f); });
+  document.querySelectorAll('#dirMedia figure').forEach(f => {
+    f.onclick = e => { if (st.sel.size || e.metaKey || e.ctrlKey || e.shiftKey){ toggleSel(f.dataset.p); return; } openMedia(f.dataset.p); };
+    if (f.dataset.vid && !f.dataset.cloud && !(animOn && WEBVIDEO_RE.test(f.dataset.p))){
+      if (!WEBVIDEO_RE.test(f.dataset.p)) return;
+      let pv = null, timer = null;
+      f.onmouseenter = () => { timer = setTimeout(() => {
+        pv = document.createElement('video'); pv.className='thumb'; pv.muted=true; pv.loop=true; pv.autoplay=true; pv.playsInline=true;
+        pv.src = raw(f.dataset.p); pv.style.cssText='position:absolute;top:0;left:0';
+        f.prepend(pv); f.classList.add('previewing'); pv.play().catch(()=>{});
+      }, 350); };
+      f.onmouseleave = () => { clearTimeout(timer); if (pv){ pv.pause(); pv.removeAttribute('src'); pv.load(); pv.remove(); pv=null; } f.classList.remove('previewing'); };
+    }
+  });
+}
+
+function kindLabel(k, skill){
+  if (skill) return 'Skill';
+  return ({dir:'Dossier',markdown:'Markdown',json:'JSON',config:'Configuration',text:'Texte',image:'Image',pdf:'PDF',audio:'Audio',video:'Vidéo',db:'Base SQLite',secret:'Secrets',binary:'Binaire',icloud:'Non téléchargé (iCloud)',tag:'Tag',office:'Document Office'})[k] || k;
+}
+
+function splitFrontmatter(text){
+  const m = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
+  if (!m) return [null, text];
+  const rows = [];
+  m[1].split('\n').forEach(line => {
+    const mm = line.match(/^([\w.\-]+)\s*:\s*(.*)$/);
+    if (mm) rows.push([mm[1], mm[2]]); else if (rows.length && line.trim()) rows[rows.length-1][1] += ' ' + line.trim();
+  });
+  return [rows, text.slice(m[0].length)];
+}
+
+function renderMarkdown(text, basePath){
+  const [fm, bodyText] = splitFrontmatter(text);
+  let pre = bodyText.replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_, t, alias) =>
+    `<span class="wl" data-wl="${esc(t.trim())}">${esc(alias||t)}</span>`);
+  let html = DOMPurify.sanitize(marked.parse(pre, {gfm:true, breaks:false}), {ADD_ATTR:['data-wl']});
+  const fmHtml = fm ? '<table class="fm">' + fm.map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') + '</table>' : '';
+  return `${fmHtml}<div class="md" data-base="${esc(basePath||'')}">${html}</div>`;
+}
+
+function renderText(info){
+  const k = info.kind, t = info.text, name = info.name.toLowerCase();
+  if (k==='markdown') return renderMarkdown(t, info.path.split('/').slice(0,-1).join('/'));
+  if (name.endsWith('.jsonl')) return renderJsonl(t);
+  if (name.endsWith('.json')){
+    try {
+      const obj = JSON.parse(t);
+      const msgs = findMessages(obj);
+      if (msgs) return renderChat(msgs) + `<details class="jl"><summary>JSON brut</summary><pre class="code">${esc(JSON.stringify(obj,null,2))}</pre></details>`;
+      return `<pre class="code">${esc(JSON.stringify(obj,null,2))}</pre>`;
+    } catch(e){}
+  }
+  return `<pre class="code">${esc(t)}</pre>`;
+}
+
+function findMessages(obj){
+  if (Array.isArray(obj) && obj.length && obj.every(m => m && typeof m==='object' && 'role' in m)) return obj;
+  if (obj && typeof obj==='object') for (const key of ['messages','conversation','history','turns']) if (Array.isArray(obj[key]) && obj[key].length && obj[key][0] && 'role' in obj[key][0]) return obj[key];
+  return null;
+}
+function msgText(c){
+  if (typeof c === 'string') return c;
+  if (Array.isArray(c)) return c.map(p => typeof p==='string' ? p : (p.text ?? p.content ?? (p.type ? `[${p.type}]` : JSON.stringify(p)))).join('\n');
+  if (c && typeof c==='object') return c.text ?? JSON.stringify(c, null, 2);
+  return String(c ?? '');
+}
+function renderChat(msgs){
+  return '<div class="section">Conversation ('+msgs.length+' messages)</div><div class="chat">' + msgs.map(m => {
+    const role = (m.role||'?').toLowerCase();
+    let txt = msgText(m.content);
+    if (!txt && m.tool_calls) txt = '```json\n' + JSON.stringify(m.tool_calls, null, 2) + '\n```';
+    const cls = role.startsWith('user') ? 'user' : role.startsWith('assist') ? 'assistant' : role==='tool' ? 'tool' : 'other';
+    return `<div class="msg ${cls}"><div class="role">${esc(m.role)}${m.name?' · '+esc(m.name):''}</div><div class="md">${DOMPurify.sanitize(marked.parse(String(txt).slice(0,20000)))}</div></div>`;
+  }).join('') + '</div>';
+}
+function renderJsonl(t){
+  const lines = t.split('\n').filter(l => l.trim());
+  const objs = [];
+  for (const l of lines){ try { objs.push(JSON.parse(l)); } catch(e){ objs.push(l); } }
+  const msgs = objs.filter(o => o && typeof o==='object' && 'role' in o);
+  if (msgs.length && msgs.length >= objs.length*0.5) return renderChat(msgs);
+  const nested = objs.map(o => o && typeof o==='object' && (o.message && o.message.role ? o.message : null)).filter(Boolean);
+  if (nested.length && nested.length >= objs.length*0.5) return renderChat(nested);
+  return `<div class="section">${objs.length} entrées</div>` + objs.slice(0,1500).map((o,i) => {
+    const s = typeof o==='string' ? o : JSON.stringify(o);
+    const sum = typeof o==='object' && o ? (o.timestamp||o.time||o.ts||o.type||o.event||'') + ' ' + s.slice(0,140) : s.slice(0,160);
+    return `<details class="jl"><summary>#${i+1} ${esc(sum)}</summary><pre class="code">${esc(typeof o==='string'?o:JSON.stringify(o,null,2))}</pre></details>`;
+  }).join('');
+}
+
+function renderRefs(id){
+  if (!data) return '';
+  const out = [], inn = [];
+  data.links.forEach(l => {
+    if (l.type!=='ref') return;
+    const s = typeof l.source==='object'? l.source.id : l.source, t = typeof l.target==='object'? l.target.id : l.target;
+    if (s===id) out.push([t,l.why]); else if (t===id) inn.push([s,l.why]);
+  });
+  const row = ([p,why]) => { const n = byId.get(p) || {name:p,kind:'text'};
+    return `<div class="item" data-p="${esc(p)}"><span class="ic">${iconFor(n)}</span><span class="nm">${esc(n.name)} <small style="color:var(--muted);font-family:var(--mono)">${esc(p)}</small></span><span class="why">${esc(why)}</span></div>`; };
+  let h = '';
+  if (out.length) h += `<div class="section">Fait référence à (${out.length})</div><div class="list refs">${out.map(row).join('')}</div>`;
+  if (inn.length) h += `<div class="section">Cité par (${inn.length})</div><div class="list refs">${inn.map(row).join('')}</div>`;
+  return h;
+}
+
+function resolveRel(base, href){
+  // lien absolu vers un fichier de la racine (convention des PDF d'archive) -> chemin relatif à la racine
+  if (href.startsWith('/')){ const r = (data && data.root || '') + '/'; return href.startsWith(r) ? href.slice(r.length).replace(/\/$/, '') : null; }
+  const parts = (base ? base.split('/') : []);
+  href.split('/').forEach(seg => { if (seg==='..') parts.pop(); else if (seg && seg!=='.') parts.push(seg); });
+  return parts.join('/');
+}
+
+function findByName(t){
+  t = t.toLowerCase();
+  for (const n of data.nodes) if (n.name.toLowerCase()===t || n.name.toLowerCase()===t+'.md') return n.id;
+  for (const n of data.nodes) if (n.name.toLowerCase().replace(/\.\w+$/,'')===t) return n.id;
+  return null;
+}
+
+function wirePanel(body, info){
+  body.querySelectorAll('.list.refs .item[data-p]').forEach(it => it.onclick = () => {
+    const p = it.dataset.p;
+    if (byId.has(p)) selectNode(p); else openPanel(p);
+  });
+  body.querySelectorAll('.viewer img').forEach(f => f.onclick = () => { lbList = [{path: info.path, name: info.name, kind: info.kind}]; openLightbox(0); });
+  body.querySelectorAll('.wl').forEach(w => w.onclick = () => { const id = findByName(w.dataset.wl); if (id) selectNode(id); else w.title='Introuvable dans le dossier'; });
+  body.querySelectorAll('.md[data-base]').forEach(md => {
+    const base = md.dataset.base;
+    md.querySelectorAll('img').forEach(img => { const s = img.getAttribute('src')||''; if (!/^(https?:|data:)/.test(s)){ const t = resolveRel(base, decodeURIComponent(s)); if (t !== null) img.src = raw(t); } });
+    md.querySelectorAll('a[href]').forEach(a => {
+      const h = a.getAttribute('href');
+      if (/^(https?:|mailto:)/.test(h)){ a.target='_blank'; a.rel='noopener'; return; }
+      if (h.startsWith('#')) return;
+      const target = resolveRel(base, decodeURIComponent(h.split('#')[0]));
+      if (target === null){ a.title = 'Hors des dossiers suivis : non consultable ici'; a.style.opacity = .6; a.onclick = e => e.preventDefault(); return; }
+      a.onclick = e => { e.preventDefault(); const p = target.replace(/\/$/, ''); if (/\.(png|jpe?g|gif|webp|mp4|mov|webm|m4v|mp3|wav|m4a)$/i.test(p)){ lbList = [{path: p, name: p.split('/').pop(), kind: /\.(mp4|mov|webm|m4v)$/i.test(p) ? 'video' : /\.(mp3|wav|m4a)$/i.test(p) ? 'audio' : 'image'}]; return openLightbox(0); } byId.has(p) ? selectNode(p) : openPanel(p); };
+    });
+  });
+  body.querySelectorAll('.tabs button[data-t]').forEach(b => b.onclick = () => {
+    body.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    loadTable(info.path, b.dataset.t, 0);
+  });
+}
+
+async function loadTable(path, table, offset){
+  const v = $('#dbview'); v.className=''; v.innerHTML='<div class="empty">Chargement…</div>';
+  const r = await (await fetch(`/api/db?path=${encodeURIComponent(path)}&table=${encodeURIComponent(table)}&offset=${offset}`)).json();
+  if (r.error){ v.innerHTML = `<div class="err">${esc(r.error)}</div>`; return; }
+  v.innerHTML = `<div class="dbtable"><table><thead><tr>${r.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${
+    r.rows.map(row => `<tr>${row.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="tbtn" id="dbPrev" ${offset?'':'disabled'}>‹ Précédent</button><span class="chip">lignes ${offset+1}–${offset+r.rows.length}</span><button class="tbtn" id="dbNext" ${r.rows.length<100?'disabled':''}>Suivant ›</button></div>`;
+  $('#dbPrev').onclick = () => loadTable(path, table, Math.max(0, offset-100));
+  $('#dbNext').onclick = () => loadTable(path, table, offset+100);
+}
+
+// ---------------- Mise à jour avec Hermes ----------------
+const HM_TOKEN = '__HM_TOKEN__';
+let hjob = null, hpoll = null, hsince = 0, hesince = 0;
+const hpost = async (url, body) => (await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-HM-Token':HM_TOKEN}, body: JSON.stringify(body)})).json();
+const hshow = () => { $('#hmodal').style.display='flex'; };
+const hhide = () => { $('#hmodal').style.display='none'; };
+function hstateLabel(st){ return ({preparing:'sauvegarde…', running:'Hermes travaille…', done:'terminé', error:'erreur', stopped:'arrêté'})[st] || st; }
+
+async function openHermes(){
+  // une tâche en cours ? on réaffiche son suivi
+  if (hjob && ['preparing','running'].includes(hjob.state)){ hshow(); return; }
+  const path = panelPath || '';
+  const info = await (await fetch('/api/hermes/info?path=' + encodeURIComponent(path))).json();
+  hshow();
+  $('#hstate').style.display='none';
+  $('#htitle').textContent = 'Mettre à jour avec Hermes';
+  if (info.disabled){ $('#hbody').innerHTML = `<div class="warn">Le bouton Hermes est désactivé (Hermes Map a été lancé avec --no-hermes).</div>`; $('#hfoot').innerHTML=''; return; }
+  if (!info.available){
+    $('#hbody').innerHTML = `<div class="warn">La commande <code>hermes</code> est introuvable pour Hermes Map.<br><br>Dans le Terminal, tape <code>which hermes</code>, puis relance Hermes Map avec :<br><code>python3 hermes_map.py --hermes /le/chemin/affiché</code></div>`;
+    $('#hfoot').innerHTML=''; return;
+  }
+  const t = info.target;
+  if (!t || !t.ok){ $('#hbody').innerHTML = `<div class="warn">${esc(t ? t.why : 'Ouvre un dossier ou une note.')}</div>`; $('#hfoot').innerHTML=`<span class="sp"></span><button class="tbtn" onclick="document.getElementById('hmodal').style.display='none'">Fermer</button>`; return; }
+  const key = 'hm-prompt-' + t.kind;
+  const def = t.kind==='dir' ? info.prompt_dir : info.prompt_file;
+  let tpl = def; try { tpl = localStorage.getItem(key) || def; } catch(e){}
+  const fill = x => x.replaceAll('{nom}', t.name).replaceAll('{chemin}', t.abs).replaceAll('{dossier}', t.parent || '/');
+  $('#hbody').innerHTML = `
+    <div class="tgt">${t.kind==='dir'
+      ? `Hermes va mettre à jour les notes <b>.md</b> du dossier <b>${esc(t.name)}</b> et de tous ses sous-dossiers (<b>${t.md_count}</b> note(s) .md).`
+      : `Hermes va mettre à jour la note <b>${esc(t.name)}</b>.`}<br><code>${esc(t.abs)}</code></div>
+    <div class="note">Consigne envoyée à Hermes (modifiable ; <code>{nom}</code>, <code>{chemin}</code> et <code>{dossier}</code> sont remplacés automatiquement). Ta version est retenue pour la prochaine fois.</div>
+    <textarea id="hprompt" spellcheck="false"></textarea>
+    <div class="note">🛟 Avant de commencer, Hermes Map sauvegarde tous les <b>.md</b> concernés. À la fin, tu verras la liste des fichiers modifiés et créés, le détail de chaque changement, et un bouton <b>Annuler</b> pour tout remettre comme avant.</div>
+    <div style="display:flex;gap:10px;align-items:center"><b class="tgt">Profil Hermes</b><select id="hprof" class="mvin" style="width:auto">${['default'].concat(info.profiles || []).map(p => `<option ${p===guessProfile(t.path, info.profiles || []) ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select><span class="note">présélectionné d'après le vault (${esc(t.path.split('/')[0])})</span></div>
+    ${t.kind==='dir' && t.md_count > 300 ? `<div class="warn">⚠️ ${t.md_count} notes : ce sera long et consommera beaucoup d'appels au modèle. Commencer par un sous-dossier est plus prudent.</div>` : ''}`;
+  $('#hprompt').value = tpl;
+  $('#hfoot').innerHTML = `<button class="tbtn" id="hreset">Consigne par défaut</button><span class="sp"></span><span class="note">Commande : <code>${esc(info.hermes)} -p &lt;profil&gt; chat --query-file -</code></span><button class="tbtn" id="hcancel">Annuler</button><button class="tbtn primary" id="hgo">☤ Lancer Hermes</button>`;
+  $('#hreset').onclick = () => { $('#hprompt').value = def; try { localStorage.removeItem(key); } catch(e){} };
+  $('#hcancel').onclick = hhide;
+  $('#hgo').onclick = async () => {
+    const tplNow = $('#hprompt').value;
+    try { if (tplNow !== def) localStorage.setItem(key, tplNow); else localStorage.removeItem(key); } catch(e){}
+    $('#hgo').disabled = true;
+    const pr = $('#hprof') ? $('#hprof').value : 'default';
+    const r = await hpost('/api/hermes/run', {path: t.path, prompt: fill(tplNow), profile: pr === 'default' ? '' : pr});
+    if (r.error){ $('#hgo').disabled = false; alertBox(r.error); return; }
+    hjob = r; hsince = 0; hesince = 0;
+    hRunningView(t);
+    liveStart();
+    hPoll();
+  };
+}
+// profil Hermes : celui qui porte le nom de la zone (Pro -> pro), sinon le profil choisi dans les réglages
+function guessProfile(path, profiles){
+  const top = (path || '').split('/')[0], z = stripPrefix(top).toLowerCase();
+  if (profiles.includes(z)) return z;
+  if (CFG.archive_dir && top === CFG.archive_dir){ const w = (path.split('/')[1] || '').toLowerCase(); if (profiles.includes(w)) return w; }
+  const d = (CFG.hermes || {}).profile;
+  return d && profiles.includes(d) ? d : 'default';
+}
+function alertBox(msg){ const d = document.createElement('div'); d.className='warn'; d.textContent = msg; $('#hbody').prepend(d); }
+
+function hRunningView(t){
+  $('#htitle').textContent = 'Hermes : ' + (t ? t.name : (hjob.target || ''));
+  $('#hbody').innerHTML = `<pre id="hlog"></pre><div id="hchanges"></div>`;
+  $('#hfoot').innerHTML = `<span class="note" id="htime"></span><span class="sp"></span><button class="tbtn danger" id="hstop">⏹ Arrêter Hermes</button><button class="tbtn" id="hbg">Continuer en arrière-plan</button>`;
+  $('#hstop').onclick = async () => { if (confirmInline('#hstop', 'Confirmer l\'arrêt ?')) await hpost('/api/hermes/stop', {job: hjob.id}); };
+  $('#hbg').onclick = hhide;
+  $('#hfoot').insertAdjacentHTML('afterbegin', '<button class="tbtn" id="hwatch" title="Fermer cette fenêtre et regarder Hermes travailler sur la carte">👁 Voir sur la carte</button>');
+  $('#hwatch').onclick = hhide;
+  $('#phermes').classList.add('busy');
+}
+// confirmation sans boîte de dialogue du navigateur : 1er clic = arme, 2e clic = confirme
+function confirmInline(sel, label){
+  const b = $(sel); if (!b) return false;
+  if (b.dataset.armed){ return true; }
+  const old = b.textContent; b.dataset.armed = '1'; b.textContent = label;
+  setTimeout(() => { if (b.isConnected){ delete b.dataset.armed; b.textContent = old; } }, 3500);
+  return false;
+}
+
+async function hPoll(){
+  clearTimeout(hpoll);
+  if (!hjob) return;
+  let r;
+  try { r = await (await fetch(`/api/hermes/status?job=${encodeURIComponent(hjob.id)}&since=${hsince}&esince=${hesince}`)).json(); }
+  catch(e){ hpoll = setTimeout(hPoll, 2000); return; }
+  if (r.error){ return; }
+  hjob = r; hsince = r.next; hesince = r.enext;
+  if (r.events && r.events.length){ liveStart(); r.events.forEach(liveEvent); }
+  const log = $('#hlog');
+  if (log && r.lines.length){
+    const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    log.insertAdjacentHTML('beforeend', r.lines.map(l => l.startsWith('[Hermes Map]') ? `<span class="me">${esc(l)}</span>\n` : esc(l) + '\n').join(''));
+    if (atBottom) log.scrollTop = log.scrollHeight;
+  }
+  const st = $('#hstate'); st.style.display=''; st.className = 'hstate ' + r.state; st.textContent = hstateLabel(r.state);
+  const el = $('#htime'); if (el) el.textContent = 'Durée : ' + fmtDur(((r.ended || Date.now()/1000) - r.started));
+  if (['preparing','running'].includes(r.state)){ hpoll = setTimeout(hPoll, 1000); return; }
+  // terminé
+  $('#phermes').classList.remove('busy');
+  liveStop();
+  hDoneView(r);
+  load(true).then(() => { if (panelPath !== null) openPanel(panelPath, {back:true, restore:{scroll: $('#pbody').scrollTop, dir: dirState ? {...dirState, info:null} : null}}); });
+}
+const fmtDur = s => s < 60 ? Math.round(s) + ' s' : Math.floor(s/60) + ' min ' + String(Math.round(s%60)).padStart(2,'0');
+
+function hDoneView(r){
+  const c = r.changes || {modified:[], created:[], deleted:[], other:[]};
+  const row = (rel, k, lbl) => `<div class="item" data-diff="${k!=='oth' ? esc(rel) : ''}" data-p="${esc(rel)}"><span class="tagk k-${k}">${lbl}</span><span class="nm">${esc(rel.split('/').pop())} <small class="where">${esc(rel.split('/').slice(0,-1).join('/'))}</small></span>${k!=='oth' && k!=='del' ? '<span class="sz">voir ›</span>' : ''}</div>`;
+  const total = c.modified.length + c.created.length + c.deleted.length;
+  const mv = c.moves || [];
+  const movesHtml = mv.length ? `<div class="section">Fichiers reclassés (${mv.filter(m => m.new && !m.same).length} / ${mv.length})</div><div class="list hchanges">` + mv.map(m =>
+      m.same ? `<div class="item"><span class="tagk k-oth">laissé</span><span class="nm">${esc(m.old.split('/').pop())} <small class="where">laissé en place (voir le journal pour la raison)</small></span></div>`
+      : m.new ? `<div class="item" data-goto="${esc(m.new)}"><span class="tagk k-new">rangé</span><span class="nm">${esc(m.old.split('/').pop())} → <b>${esc(m.new.split('/').pop())}</b><small class="where">${esc(m.new.split('/').slice(0,-1).join('/'))}</small></span><span class="sz">voir ›</span></div>`
+      : `<div class="item"><span class="tagk k-del">?</span><span class="nm">${esc(m.old.split('/').pop())} <small class="where">introuvable après le passage</small></span></div>`).join('') + '</div>' : '';
+  $('#hchanges').innerHTML = `<div class="section">Changements (${total})</div>` + (total || c.other.length
+    ? `<div class="list hchanges">${c.modified.map(x=>row(x,'mod','modifié')).join('')}${c.created.map(x=>row(x,'new','créé')).join('')}${c.deleted.map(x=>row(x,'del','supprimé')).join('')}${c.other.map(x=>row(x,'oth','autre fichier')).join('')}</div>`
+      + (c.other.length ? `<div class="note">« autre fichier » : fichiers non-.md touchés pendant le passage ; ils ne sont pas sauvegardés par Hermes Map.</div>` : '')
+    : `<div class="note">Aucun fichier .md n'a été modifié. Regarde le journal ci-dessus pour comprendre ce que Hermes a fait (ou demandé).</div>`);
+  if (movesHtml) $('#hchanges').insertAdjacentHTML('afterbegin', movesHtml);
+  $('#hchanges').querySelectorAll('.item[data-goto]').forEach(it => it.onclick = () => { hhide(); openPanel(it.dataset.goto.split('/').slice(0,-1).join('/')); });
+  $('#hchanges').querySelectorAll('.item[data-diff]').forEach(it => it.onclick = () => it.dataset.diff ? hDiff(it.dataset.diff) : null);
+  $('#hfoot').innerHTML = `<span class="note">Durée : ${fmtDur(r.ended - r.started)} · sauvegarde : <code>${esc(r.backup)}</code></span><span class="sp"></span>`
+    + ((total || mv.some(m => m.new && !m.same)) && !r.undone ? `<button class="tbtn danger" id="hundo">↶ Annuler ${r.mode==='reclass' ? 'ce reclassement' : 'cette mise à jour'}</button>` : (r.undone ? '<span class="note">✓ annulée</span>' : ''))
+    + `<button class="tbtn" id="hnew">Nouvelle mise à jour</button><button class="tbtn primary" id="hok">Fermer</button>`;
+  $('#hok').onclick = hhide;
+  $('#hnew').onclick = () => { hjob = null; openHermes(); };
+  $('#hundo') && ($('#hundo').onclick = async () => {
+    if (!confirmInline('#hundo', 'Confirmer : tout remettre comme avant ?')) return;
+    const u = await hpost('/api/hermes/undo', {job: r.id});
+    if (u.error) return alertBox(u.error);
+    $('#hchanges').insertAdjacentHTML('afterbegin', `<div class="warn">↶ Annulé : ${u.restored.length} fichier(s) remis en place / restauré(s), ${u.removed.length} fichier(s) créé(s) mis de côté dans la sauvegarde${u.skipped.length ? `, ${u.skipped.length} ignoré(s) car modifiés depuis : ${esc(u.skipped.join(', '))}` : ''}.</div>`);
+    $('#hundo').remove();
+    load(true);
+  });
+}
+
+async function hDiff(rel){
+  const d = await (await fetch(`/api/hermes/diff?job=${encodeURIComponent(hjob.id)}&path=${encodeURIComponent(rel)}`)).json();
+  const lines = (d.diff||[]).map(l => `<span class="${l.startsWith('+') ? 'a' : l.startsWith('-') ? 'r' : l.startsWith('@@') ? 'h' : ''}">${esc(l) || ' '}</span>`).join('');
+  const box = document.createElement('div');
+  box.innerHTML = `<div class="section" style="display:flex;align-items:center;gap:8px">${d.is_new ? 'Nouveau fichier' : 'Changements'} : ${esc(rel)} <span class="sp" style="flex:1"></span><button class="tbtn" data-open>Ouvrir la note</button><button class="tbtn" data-back>← Liste</button></div><pre class="hdiff">${lines || '<span>(aucune différence)</span>'}</pre>`;
+  const saved = $('#hchanges').innerHTML;
+  $('#hchanges').innerHTML = ''; $('#hchanges').appendChild(box);
+  box.querySelector('[data-back]').onclick = () => hDoneView(hjob);
+  box.querySelector('[data-open]').onclick = () => { hhide(); byId.has(rel) ? selectNode(rel) : openPanel(rel); };
+  $('#hchanges').scrollIntoView({block:'start'});
+}
+
+$('#phermes').onclick = openHermes;
+window.__hm = {G: () => G, data: () => data, liveEvent, liveStart}; // pour le diagnostic
+$('#hclose').onclick = hhide;
+
+// ---------------- Activité de Hermes en direct sur la carte ----------------
+function visibleAnchor(rel){
+  // le nœud lui-même s'il est sur la carte, sinon son dossier visible le plus proche
+  let a = rel;
+  const vis = id => { const n = byId.get(id); return n && !hiddenGroups.has(n.group) && (showFiles || n.kind==='dir' || n.kind==='root'); };
+  while (a && !vis(a)) a = a.split('/').slice(0,-1).join('/');
+  return a || '/';
+}
+function liveStart(){
+  if (liveOn) return;
+  liveOn = true; liveFeed = [];
+  G && G.autoPauseRedraw(false);
+  $('#live').style.display = '';
+  renderFeed();
+  clearInterval(liveTimer);
+  liveTimer = setInterval(() => {            // estompe les pulsations et rafraîchit le fil
+    const now = Date.now()/1000;
+    for (const [id, a] of activity) if (now - a.t > ACT[a.kind].ttl) activity.delete(id);
+    refreshStyles(); renderFeed();
+  }, 1000);
+}
+function liveStop(){
+  setTimeout(() => {
+    liveOn = false; clearInterval(liveTimer); unpinAll();
+    G && G.autoPauseRedraw(true);
+    renderFeed(true);
+  }, 8000);
+}
+function liveEvent(ev){
+  const now = Date.now()/1000;
+  // fichier créé : nœud provisoire sous son dossier (remplacé par le vrai à la relecture)
+  if (ev.kind==='create' && !byId.has(ev.path)){
+    const parent = ev.path.split('/').slice(0,-1).join('/') || '/';
+    if (byId.has(parent)){
+      const pn = byId.get(parent);
+      const n = {id: ev.path, name: ev.path.split('/').pop(), kind: 'markdown', path: ev.path, group: pn.group === 'root' ? ev.path.split('/')[0] : pn.group, depth: (pn.depth||0)+1, live: true};
+      const pg = G && G.graphData().nodes.find(x => x.id===parent);
+      if (pg){ n.x = pg.x + (Math.random()-.5)*20; n.y = pg.y + (Math.random()-.5)*20; }
+      data.nodes.push(n); data.links.push({source: parent, target: ev.path, type: 'tree'});
+      indexData();
+    }
+  }
+  const anchor = visibleAnchor(ev.path);
+  activity.set(anchor, {kind: ev.kind, t: now, path: ev.path});
+  // nouveaux liens écrits par Hermes : dessinés tout de suite, avec des particules
+  let added = 0;
+  const keys = new Set(data.links.map(lkey));
+  const addLink = (a, b, type) => {
+    if (!a || !b || a===b) return;
+    if (keys.has(a+'>'+b) || keys.has(b+'>'+a)) return;
+    data.links.push({source: a, target: b, type: 'live', live: type, born: now}); keys.add(a+'>'+b); added++;
+  };
+  (ev.links||[]).forEach(t => addLink(anchor, visibleAnchor(t), 'lien'));
+  (ev.tags||[]).forEach(t => { if (byId.has('#tag:'+t)) addLink('#tag:'+t, anchor, 'tag'); });
+  if (added || ev.kind==='create'){ pinAll(); indexData(); render(); }
+  liveFeed.unshift({...ev, anchor, at: now, added});
+  liveFeed = liveFeed.slice(0, 40);
+  if (followCam && ev.kind !== 'read' && now - lastFollow > 2.5){ lastFollow = now; focusLive(anchor); }
+  refreshStyles(); renderFeed();
+}
+// pendant que Hermes travaille, la carte ne bouge pas : on fige les positions (nouveaux liens = visuels seulement)
+function pinAll(){
+  data.nodes.forEach(n => { if (n.x !== undefined && n.fx === undefined){ n.fx = n.x; n.fy = n.y; n._pin = true; } });
+  g3Nodes.forEach(o => { if (o.x !== undefined && o.fx === undefined){ o.fx = o.x; o.fy = o.y; o.fz = o.z; o._pin = true; } });
+}
+function unpinAll(){
+  data.nodes.forEach(n => { if (n._pin){ delete n.fx; delete n.fy; delete n._pin; } });
+  g3Nodes.forEach(o => { if (o._pin){ delete o.fx; delete o.fy; delete o.fz; delete o._pin; } });
+}
+function focusLive(id){
+  if (mode==='3d') return focusNode(id);
+  const gn = G && G.graphData().nodes.find(x => x.id===id);
+  if (gn){ G.centerAt(gn.x, gn.y, 900); if (G.zoom() < 1.2) G.zoom(1.6, 900); }
+}
+const ago = t => { const d = Math.round(Date.now()/1000 - t); return d < 2 ? 'à l\'instant' : d < 60 ? `il y a ${d} s` : `il y a ${Math.round(d/60)} min`; };
+function renderFeed(final){
+  const el = $('#live'); if (!el) return;
+  if (!liveOn && !final){ el.style.display='none'; return; }
+  const st = hjob ? hjob.state : '';
+  const counts = {read:0, write:0, create:0, move:0};
+  const uniq = {read:new Set(), write:new Set(), create:new Set(), move:new Set()};
+  liveFeed.forEach(e => uniq[e.kind].add(e.path));
+  Object.keys(uniq).forEach(k => counts[k] = uniq[k].size);
+  el.innerHTML = `<div class="lh"><span class="dot ${['preparing','running'].includes(st) ? 'on' : ''}"></span><b>Hermes</b> <span class="muted">${esc(hstateLabel(st))}</span>
+      <label title="La carte suit le fichier en cours d'écriture"><input type="checkbox" id="lfollow" ${followCam?'checked':''}> Suivre</label>
+      <button class="tbtn" id="lopen" title="Ouvrir le journal">Journal</button><button class="tbtn" id="lx" title="Masquer">✕</button></div>
+    <div class="lc"><span style="color:${ACT.read.c}">👁 ${counts.read} lu(s)</span><span style="color:${ACT.write.c}">✏️ ${counts.write} écrit(s)</span><span style="color:${ACT.create.c}">✨ ${counts.create} créé(s)</span>${counts.move ? `<span style="color:${ACT.move.c}">📦 ${counts.move} déplacé(s)</span>` : ''}</div>
+    <div class="lf">${liveFeed.slice(0, 9).map((e,i) => `<div class="li" data-i="${i}"><span>${ACT[e.kind].icon}</span><span class="ln" style="color:${ACT[e.kind].c}">${esc(e.path.split('/').pop())}</span>${e.added ? `<small>+${e.added} lien(s)</small>` : ''}<small class="t">${ago(e.at)}</small></div>`).join('') || '<div class="muted" style="padding:4px 2px">En attente de la première action…</div>'}</div>`;
+  el.querySelectorAll('.li').forEach(d => d.onclick = () => { const e = liveFeed[+d.dataset.i]; byId.has(e.path) ? selectNode(e.path, true) : openPanel(e.path); });
+  $('#lfollow').onchange = () => { followCam = $('#lfollow').checked; };
+  $('#lopen').onclick = () => hshow();
+  $('#lx').onclick = () => { el.style.display='none'; };
+  if (final) setTimeout(() => { if (!liveOn) el.style.display='none'; }, 30000);
+}
+
+// ---------------- Déplacer / renommer (manuel, sans IA) ----------------
+const mvRecent = () => { try { return JSON.parse(localStorage.getItem('hm-mvrecent') || '[]'); } catch(e){ return []; } };
+function guessDest(c){
+  // proposition : on part du dossier actuel
+  const parts = c.path.split('/');
+  return parts.slice(0, -1).join('/');
+}
+function openMoveDialog(items){
+  items = (items || []).filter(c => c && c.kind !== 'dir');
+  if (!items.length) return;
+  hshow(); $('#hstate').style.display='none';
+  $('#htitle').textContent = items.length > 1 ? `Déplacer / renommer ${items.length} fichiers` : 'Déplacer / renommer';
+  const recent = mvRecent();
+  const zones = data ? data.nodes.filter(n => n.depth === 1 && n.kind === 'dir').map(n => n.id) : [];
+  const arch = CFG.archive_dir;
+  const quick = (arch ? zones.filter(z => z !== arch).map(z => arch + '/' + stripPrefix(z).toLowerCase()) : zones).slice(0, 8)
+    .concat(recent).filter((x,i,a) => a.indexOf(x)===i);
+  $('#hbody').innerHTML = `
+    <div class="tgt"><b>Dossier de destination</b> (tape pour chercher ; il sera créé s'il n'existe pas)</div>
+    <input id="mvdest" class="mvin" list="mvdl" autocomplete="off" value="${esc(recent[0] || guessDest(items[0]))}"><datalist id="mvdl"></datalist>
+    <div class="mvquick">${quick.map(q => `<span class="tagchip auto" data-q="${esc(q)}">${esc(q)}</span>`).join('')}</div>
+    <div class="tgt" style="margin-top:6px"><b>Nouveau nom</b> (l'extension est gardée si tu ne la tapes pas)</div>
+    <div class="mvrows">${items.map((c,i) => `<div class="mvrow" data-i="${i}">
+        ${catOf(c)==='image' && !c.cloud ? `<img src="${isAnimated(c) ? raw(c.path) : thumbUrl(c.path)}" onerror="this.src='${raw(c.path)}';this.onerror=null" alt="">` : `<span class="mvic">${iconFor(c)}</span>`}
+        <div class="mvcol"><input class="mvin mvname" value="${esc(c.name)}"><small class="where">${esc(c.path)}</small><small class="mvto"></small></div></div>`).join('')}</div>
+    <label class="mvopt"><input type="checkbox" id="mvidx" checked> Mettre à jour les index : fiche du <code>catalog.yaml</code>${arch ? `, catalogue et journal de l'archive` : ''}, liens des notes .md</label>
+    <input id="mvnote" class="mvin" placeholder="Note pour le journal (facultatif), ex. : mal rangé, c'est une photo de vacances">`;
+  $('#hfoot').innerHTML = `<span class="note">Rien n'est envoyé à une IA. Tout est sauvegardé et annulable.</span><span class="sp"></span><button class="tbtn" id="mvcancel">Annuler</button><button class="tbtn primary" id="mvgo">✋ Déplacer</button>`;
+  $('#mvcancel').onclick = hhide;
+  let t;
+  const replan = () => { clearTimeout(t); t = setTimeout(async () => {
+    const r = await hpost('/api/move/plan', {items: mvItems(items)});
+    (r.plan || []).forEach((p, i) => { const el = document.querySelectorAll('.mvrow .mvto')[i]; if (!el) return;
+      el.className = 'mvto ' + (p.ok ? 'ok' : 'bad'); el.textContent = p.ok ? '→ ' + p.target + (p.new_dir ? '  (nouveau dossier)' : '') : '⚠️ ' + p.error; });
+    $('#mvgo').disabled = !(r.plan || []).some(p => p.ok);
+  }, 250); };
+  let t2;
+  $('#mvdest').oninput = () => { replan(); clearTimeout(t2); t2 = setTimeout(async () => {
+    const r = await (await fetch('/api/dirs?q=' + encodeURIComponent($('#mvdest').value))).json();
+    $('#mvdl').innerHTML = (r.dirs || []).map(d => `<option value="${esc(d)}">`).join('');
+  }, 200); };
+  document.querySelectorAll('.mvname').forEach(i => i.oninput = replan);
+  document.querySelectorAll('.mvquick [data-q]').forEach(q => q.onclick = () => { $('#mvdest').value = q.dataset.q + '/'; $('#mvdest').focus(); $('#mvdest').oninput(); });
+  $('#mvgo').onclick = async () => {
+    $('#mvgo').disabled = true;
+    const dest = $('#mvdest').value.replace(/\/+$/, '');
+    try { const r = [dest].concat(mvRecent().filter(x => x !== dest)).slice(0, 6); localStorage.setItem('hm-mvrecent', JSON.stringify(r)); } catch(e){}
+    const r = await hpost('/api/move', {items: mvItems(items), update_index: $('#mvidx').checked, note: $('#mvnote').value});
+    moveDoneView(r);
+  };
+  replan(); $('#mvdest').oninput();
+}
+function mvItems(items){
+  const dest = ($('#mvdest').value || '').trim().replace(/\/+$/, '');
+  return items.map((c, i) => ({src: c.path, dest_dir: dest, name: (document.querySelectorAll('.mvname')[i] || {}).value || c.name}));
+}
+function moveDoneView(r){
+  $('#htitle').textContent = r.ok ? 'Déplacement terminé' : 'Déplacement impossible';
+  const rep = r.report || {};
+  $('#hbody').innerHTML = (r.error ? `<div class="warn">${esc(r.error)}</div>` : '')
+    + `<div class="list hchanges">${(r.moved || []).map(m => `<div class="item" data-p="${esc(m.new)}"><span class="tagk k-new">déplacé</span><span class="nm">${esc(m.old.split('/').pop())} → <b>${esc(m.new.split('/').pop())}</b><small class="where">${esc(m.new.split('/').slice(0,-1).join('/'))}</small></span><span class="sz">voir ›</span></div>`).join('')}
+      ${(r.plan || []).filter(p => !p.ok).map(p => `<div class="item"><span class="tagk k-del">ignoré</span><span class="nm">${esc(p.src.split('/').pop())} <small class="where">${esc(p.error || '')}</small></span></div>`).join('')}</div>`
+    + (r.ok ? `<div class="note" style="margin-top:8px">Index mis à jour : ${rep.catalog_yaml||0} fiche(s) catalog.yaml · ${rep.catalog_jsonl||0} ligne(s) CATALOG.jsonl · ${rep.log||0} ligne(s) LOG.md · ${rep.links||0} lien(s) de notes${(rep.notes||[]).length ? '<br>' + rep.notes.map(esc).join('<br>') : ''}${rep.error ? '<br>⚠️ ' + esc(rep.error) : ''}</div>` : '');
+  $('#hfoot').innerHTML = `<span class="note">${r.journal ? 'Sauvegarde : <code>' + esc(r.journal) + '</code>' : ''}</span><span class="sp"></span>${r.ok ? '<button class="tbtn danger" id="mvundo">↶ Annuler ce déplacement</button>' : ''}<button class="tbtn primary" id="mvok">Fermer</button>`;
+  $('#mvok').onclick = hhide;
+  $('#hbody').querySelectorAll('.item[data-p]').forEach(it => it.onclick = () => { hhide(); openPanel(it.dataset.p.split('/').slice(0,-1).join('/')); });
+  $('#mvundo') && ($('#mvundo').onclick = async () => {
+    if (!confirmInline('#mvundo', 'Confirmer : tout remettre comme avant ?')) return;
+    const u = await hpost('/api/move/undo', {id: r.id});
+    $('#hbody').insertAdjacentHTML('afterbegin', `<div class="warn">${u.ok ? `↶ Annulé : ${u.moved_back.length} fichier(s) remis à leur place, ${u.restored.length} index restauré(s)${u.skipped.length ? ', ignorés : ' + esc(u.skipped.join(', ')) : ''}.` : esc(u.error || 'annulation impossible')}</div>`);
+    $('#mvundo').remove(); afterFsChange();
+  });
+  afterFsChange();
+}
+// relit la carte et le dossier ouvert après un déplacement
+async function afterFsChange(){
+  await sleep(600);
+  await load(true);
+  if (panelPath !== null){
+    let p = panelPath; while (p && !(await (await fetch('/api/node?path=' + encodeURIComponent(p))).json()).kind) p = p.split('/').slice(0,-1).join('/');
+    openPanel(p, {back: true, restore: {scroll: $('#pbody').scrollTop, dir: dirState ? {...dirState, info: null, sel: new Set()} : null}});
+  }
+}
+
+// ---------------- Reclasser avec Hermes ----------------
+async function openReclassDialog(items){
+  items = (items || []).filter(c => c && c.kind !== 'dir');
+  if (!items.length) return;
+  if (hjob && ['preparing','running'].includes(hjob.state)){ hshow(); return; }
+  const info = await (await fetch('/api/hermes/info')).json();
+  hshow(); $('#hstate').style.display='none';
+  $('#htitle').textContent = `Reclasser ${items.length} fichier(s) avec Hermes`;
+  if (!info.available){ $('#hbody').innerHTML = `<div class="warn">La commande <code>hermes</code> est introuvable (voir l'option --hermes).</div>`; $('#hfoot').innerHTML = ''; return; }
+  const profiles = ['default'].concat(info.profiles || []);
+  const rp = info.reclass_profile && profiles.includes(info.reclass_profile) ? info.reclass_profile : 'default';
+  let prof = rp; try { prof = localStorage.getItem('hm-profile-reclass') || rp; } catch(e){}
+  if (!profiles.includes(prof)) prof = rp;
+  const def = info.prompt_reclass;
+  let tpl = def; try { tpl = localStorage.getItem('hm-prompt-reclass') || def; } catch(e){}
+  const list = items.map(c => `- ${data.root}/${c.path}${descText(c) ? '   (fiche actuelle : ' + descText(c).slice(0, 160) + ')' : ''}`).join('\n');
+  const fill = x => x.replaceAll('{racine}', data.root).replaceAll('{nb}', String(items.length)).replaceAll('{fichiers}', list);
+  $('#hbody').innerHTML = `
+    <div class="mvrows small">${items.slice(0, 12).map(c => `<div class="mvrow">${catOf(c)==='image' && !c.cloud ? `<img src="${isAnimated(c) ? raw(c.path) : thumbUrl(c.path)}" onerror="this.src='${raw(c.path)}';this.onerror=null" alt="">` : `<span class="mvic">${iconFor(c)}</span>`}<div class="mvcol"><span>${esc(c.name)}</span><small class="where">${esc(c.path)}</small></div></div>`).join('')}${items.length > 12 ? `<div class="note">… et ${items.length - 12} autre(s)</div>` : ''}</div>
+    <div class="row" style="display:flex;gap:10px;align-items:center"><b class="tgt">Profil Hermes</b>
+      <select id="hprof" class="mvin" style="width:auto">${profiles.map(p => `<option ${p===prof?'selected':''}>${esc(p)}</option>`).join('')}</select>
+      <span class="note">Choisis un profil qui a le droit d'écrire dans tous les dossiers concernés.</span></div>
+    <div class="note">Consigne envoyée à Hermes (modifiable ; <code>{fichiers}</code>, <code>{nb}</code>, <code>{racine}</code> sont remplacés automatiquement).</div>
+    <textarea id="hprompt" spellcheck="false"></textarea>
+    <div class="note">🛟 Avant de commencer, Hermes Map sauvegarde les index (.md, .yaml, .jsonl) de tous les dossiers suivis et note l'empreinte de chaque fichier. À la fin : où chaque fichier est parti (même renommé), le détail des index modifiés, et un bouton <b>Annuler</b> qui remet tout en place.</div>
+    <div class="note">ℹ️ Pour « regarder » une image, le modèle configuré dans ce profil Hermes doit savoir lire les images (vision). Sinon Hermes ne s'appuiera que sur le nom, le dossier et la fiche.</div>`;
+  $('#hprompt').value = tpl;
+  $('#hfoot').innerHTML = `<button class="tbtn" id="hreset">Consigne par défaut</button><span class="sp"></span><span class="note">Commande : <code>${esc(info.hermes)} -p <span id="hpshow">${esc(prof)}</span> chat --query-file -</code></span><button class="tbtn" id="hcancel">Annuler</button><button class="tbtn primary" id="hgo">☤ Lancer le reclassement</button>`;
+  $('#hprof').onchange = () => { $('#hpshow').textContent = $('#hprof').value; };
+  $('#hreset').onclick = () => { $('#hprompt').value = def; try { localStorage.removeItem('hm-prompt-reclass'); } catch(e){} };
+  $('#hcancel').onclick = hhide;
+  $('#hgo').onclick = async () => {
+    const tplNow = $('#hprompt').value, pr = $('#hprof').value;
+    try { tplNow !== def ? localStorage.setItem('hm-prompt-reclass', tplNow) : localStorage.removeItem('hm-prompt-reclass'); localStorage.setItem('hm-profile-reclass', pr); } catch(e){}
+    $('#hgo').disabled = true;
+    const r = await hpost('/api/hermes/run', {mode: 'reclass', files: items.map(c => c.path), prompt: fill(tplNow), profile: pr === 'default' ? '' : pr});
+    if (r.error){ $('#hgo').disabled = false; alertBox(r.error); return; }
+    hjob = r; hsince = 0; hesince = 0;
+    hRunningView({name: `reclassement de ${items.length} fichier(s)`});
+    liveStart(); hPoll();
+  };
+}
+
+// ---------------- Vidéos, documents, ouverture dans l'app du Mac ----------------
+async function openApp(path, reveal){
+  const r = await (await fetch('/api/open', {method:'POST', headers:{'Content-Type':'application/json','X-HM-Token':HM_TOKEN}, body: JSON.stringify({path, reveal: !!reveal})})).json();
+  if (r.error) alert(r.error);
+}
+const appButtons = path => `<div style="display:flex;gap:8px;justify-content:center;margin-top:14px"><button class="tbtn" data-app="${esc(path)}">Ouvrir avec l'app du Mac</button><button class="tbtn" data-finder="${esc(path)}">Montrer dans le Finder</button></div>`;
+function wireAppButtons(el){
+  el.querySelectorAll('[data-app]').forEach(b => b.onclick = e => { e.stopPropagation(); openApp(b.dataset.app); });
+  el.querySelectorAll('[data-finder]').forEach(b => b.onclick = e => { e.stopPropagation(); openApp(b.dataset.finder, true); });
+}
+// joue une vidéo dans el ; les formats non lus par le navigateur (AVI, MKV…) sont convertis par ffmpeg sur le Mac
+async function playVideo(el, c, opts={}){
+  const attrs = `${opts.controls === false ? '' : 'controls'} ${opts.muted ? 'muted' : ''} ${opts.loop ? 'loop' : ''} autoplay playsinline`;
+  const fail = msg => { el.innerHTML = `<div class="ph">${msg}${appButtons(c.path)}</div>`; wireAppButtons(el); };
+  if (WEBVIDEO_RE.test(c.name || c.path)){
+    el.innerHTML = `<video ${attrs} src="${raw(c.path)}"></video>`;
+    el.querySelector('video').onerror = () => fail('Le navigateur ne sait pas lire cette vidéo (codec non pris en charge).');
+    return;
+  }
+  const token = (el._vtok = Math.random());
+  while (true){
+    const st = await (await fetch('/api/video?path=' + encodeURIComponent(c.path))).json();
+    if (el._vtok !== token || !el.isConnected) return;
+    if (st.state === 'native' || st.state === 'ready'){
+      el.innerHTML = `<video ${attrs} src="/api/video/file?path=${encodeURIComponent(c.path)}"></video>`;
+      el.querySelector('video').onerror = () => fail('Lecture impossible.');
+      return;
+    }
+    if (st.state === 'no-ffmpeg') return fail(`Ce format (${extOf(c)}) n'est pas lu par les navigateurs.<br><small>Pour le lire ici, installe ffmpeg une fois (Terminal : <code>brew install ffmpeg</code>), puis relance Hermes Map.</small>`);
+    if (st.state === 'error') return fail('Conversion impossible : ' + esc(st.error || ''));
+    el.innerHTML = `<div class="ph">⏳ Conversion de la vidéo pour le navigateur… ${Math.round((st.progress||0)*100)} %<br><small>(une seule fois : elle est gardée en cache)</small></div>`;
+    await sleep(1000);
+  }
+}
+// affiche un document dans el : PDF, texte, Markdown, Word… ou un aperçu + bouton « Ouvrir avec l'app »
+async function renderDocInto(el, c){
+  const name = c.name || c.path.split('/').pop();
+  if (/\.pdf$/i.test(name)){ el.innerHTML = `<iframe class="docframe" src="${raw(c.path)}"></iframe>`; return; }
+  el.innerHTML = '<div class="ph">Chargement…</div>';
+  if (/\.(docx?|rtfd?|odt)$/i.test(name)){
+    const d = await (await fetch('/api/doc?path=' + encodeURIComponent(c.path))).json();
+    if (d.html){ el.innerHTML = `<div class="docpaper">${DOMPurify.sanitize(d.html, {WHOLE_DOCUMENT: false, FORBID_TAGS: ['style']})}</div>`; return; }
+  }
+  if (/\.(txt|md|markdown|json|jsonl|ya?ml|csv|log|ini|cfg|conf|toml|xml|html?)$/i.test(name)){
+    const info = await (await fetch('/api/node?path=' + encodeURIComponent(c.path))).json();
+    if (info.text != null){
+      el.innerHTML = `<div class="doctext">${renderText(info)}</div>`;
+      el.querySelectorAll('.md[data-base]').forEach(md => md.querySelectorAll('img').forEach(img => { const s = img.getAttribute('src')||''; if (!/^(https?:|data:)/.test(s)){ const t = resolveRel(md.dataset.base, decodeURIComponent(s)); if (t !== null) img.src = raw(t); } }));
+      return;
+    }
+  }
+  // Excel, PowerPoint, Pages, Numbers, Keynote… : aperçu Quick Look + ouverture dans l'app du Mac
+  el.innerHTML = `<div class="ph"><img class="docthumb" src="${thumbUrl(c.path)}" onerror="this.remove()" alt=""><br>Aperçu de la 1re page. Ce format ne s'affiche pas en entier dans le navigateur.${appButtons(c.path)}</div>`;
+  wireAppButtons(el);
+}
+
+// ---------------- Visionneuse (images, vidéos, audio, documents) ----------------
+function openMedia(path){
+  if (dirState && !lbList.some(c => c.path===path)) lbList = filteredChildren().filter(isViewable);
+  const i = lbList.findIndex(c => c.path===path);
+  if (i < 0){ const c = dirState && dirState.info.children.find(x => x.path===path); lbList = c ? [c] : [{path, name:path.split('/').pop(), kind:'image'}]; openLightbox(0); }
+  else openLightbox(i);
+}
+function stopLbMedia(){ $('#lightbox .stage').querySelectorAll('video,audio').forEach(m => { m.pause(); m.removeAttribute('src'); m.load(); }); }
+function closeLightbox(){ stopLbMedia(); $('#lightbox').style.display='none'; $('#lightbox .stage').innerHTML = ''; }
+function openLightbox(i){
+  if (!lbList.length) return;
+  stopLbMedia();
+  lbIndex = (i + lbList.length) % lbList.length;
+  const c = lbList[lbIndex], cat = catOf(c), lb = $('#lightbox'), stage = lb.querySelector('.stage');
+  lb.style.display='flex';
+  const url = raw(c.path);
+  stage.classList.toggle('doc', cat==='doc');
+  if (cat==='video'){ stage.innerHTML = '<div class="vbox"></div>'; playVideo(stage.firstElementChild, c); }
+  else if (cat==='doc'){ stage.innerHTML = '<div class="docview"></div>'; renderDocInto(stage.firstElementChild, c); }
+  else {
+    stage.innerHTML = cat==='audio' ? `<audio controls autoplay src="${url}"></audio>` : `<img src="${url}" alt="">`;
+    const m = stage.firstElementChild;
+    m.onerror = () => { stage.innerHTML = `<div class="ph">Impossible d'afficher ce fichier dans le navigateur.${appButtons(c.path)}</div>`; wireAppButtons(stage); };
+    if (cat==='image' && /\.(heic|tif|tiff)$/i.test(c.name)) m.src = thumbUrl(c.path); // formats non gérés par le navigateur
+  }
+  lb.querySelector('.nm').textContent = c.path;
+  lb.querySelector('#lbOpen').href = url;
+  lb.querySelector('.cap').textContent = (c.cloud ? '☁️ téléchargement depuis iCloud… · ' : '') + (lbList.length>1 ? `${lbIndex+1} / ${lbList.length} · ← → pour naviguer · Échap pour revenir à la liste` : 'Échap pour fermer');
+  lb.querySelectorAll('.nav').forEach(b => b.style.display = lbList.length>1 ? '' : 'none');
+}
+$('#lightbox').onclick = e => { if (e.target.id==='lightbox' || e.target.classList.contains('stage')) closeLightbox(); };
+$('#lbClose').onclick = closeLightbox;
+$('#lbApp').onclick = () => openApp(lbList[lbIndex].path);
+$('#lbMove').onclick = () => { const c = lbList[lbIndex]; closeLightbox(); openMoveDialog([c]); };
+$('#lbHermes').onclick = () => { const c = lbList[lbIndex]; closeLightbox(); openReclassDialog([c]); };
+$('#lbInfo').onclick = () => { const p = lbList[lbIndex].path; closeLightbox(); byId.has(p) ? selectNode(p) : openPanel(p); };
+$('#lightbox .prev').onclick = () => openLightbox(lbIndex-1);
+$('#lightbox .next').onclick = () => openLightbox(lbIndex+1);
+$('#pback2').onclick = panelBack;
+
+// ---------------- Recherche (barre du haut) : tout l'arbre, pas seulement la carte ----------------
+let resIdx = 0, resList = [], topSeq = 0, topTimer = null;
+function showResults(q, items, footer){
+  const box = $('#results');
+  resList = items; resIdx = 0;
+  box.innerHTML = (items.length ? items.map((r,i) =>
+      `<div class="${i===0?'sel':''}" data-i="${i}">${iconFor(byId.get(r.path) || r)} <span>${hlText(r.name, q)}</span><small>${esc(r.where ?? '')}${r.match==='chemin' ? ' · dans un dossier correspondant' : ''}</small></div>`).join('')
+    : `<div style="color:var(--muted)">${footer ? 'Recherche…' : 'Aucun résultat'}</div>`)
+    + (footer ? `<div class="all" data-all="1">${footer}</div>` : '');
+  box.style.display='block';
+  box.querySelectorAll('div[data-i]').forEach(d => d.onclick = () => pick(resList[+d.dataset.i]));
+  box.querySelector('[data-all]') && (box.querySelector('[data-all]').onclick = () => searchInPanel(q));
+}
+$('#q').addEventListener('input', () => {
+  const q = $('#q').value.trim();
+  if (!q){ $('#results').style.display='none'; return; }
+  // 1) tout de suite : ce qui est sur la carte (et les tags)
+  const nq = normTxt(q);
+  const local = data.nodes.filter(n => n.kind!=='more' && n.kind!=='root' && normTxt(n.name).includes(nq))
+    .sort((a,b) => (a.kind==='tag'?0:1)-(b.kind==='tag'?0:1) || (a.kind==='dir'?0:1)-(b.kind==='dir'?0:1))
+    .slice(0, 15).map(n => ({path: n.id, name: n.name, kind: n.kind, where: n.kind==='tag' ? 'tag' : (n.path||'').split('/').slice(0,-1).join('/')}));
+  showResults(q, local, 'Recherche dans tous les sous-dossiers…');
+  // 2) puis l'index complet côté serveur
+  clearTimeout(topTimer);
+  const my = ++topSeq;
+  topTimer = setTimeout(async () => {
+    const r = await (await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=60`)).json();
+    if (my !== topSeq) return;
+    if (r.pending){ showResults(q, local, 'Indexation en cours, réessaie dans un instant…'); return; }
+    const seen = new Set(local.map(x => x.path));
+    const merged = local.filter(x => x.kind==='tag').concat((r.results||[]).filter(x => !seen.has(x.path) || true)).filter((x,i,arr) => arr.findIndex(y => y.path===x.path)===i).slice(0, 60);
+    showResults(q, merged, r.total ? `▸ Voir les ${r.total} résultat(s) dans le panneau (avec filtres, galerie, contenu…)` : '');
+  }, 200);
+});
+$('#q').addEventListener('keydown', e => {
+  const box = $('#results');
+  if (e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); resIdx = Math.max(0, Math.min(resList.length-1, resIdx + (e.key==='ArrowDown'?1:-1)));
+    box.querySelectorAll('div[data-i]').forEach((d,i)=>d.classList.toggle('sel', i===resIdx)); box.querySelectorAll('div[data-i]')[resIdx]?.scrollIntoView({block:'nearest'}); }
+  if (e.key==='Enter'){ if (e.metaKey || e.ctrlKey || !resList.length) searchInPanel($('#q').value.trim()); else pick(resList[resIdx]); }
+  if (e.key==='Escape'){ $('#q').blur(); box.style.display='none'; }
+});
+// ouvre le panneau sur la racine avec la recherche récursive déjà remplie
+function searchInPanel(q){
+  $('#results').style.display='none'; $('#q').blur();
+  clearHL();
+  openPanel('', {restore: {dir: {q, deep: true, type: 'all'}}});
+}
+// sélectionne un résultat : s'il est sur la carte on y va, sinon on met en évidence son dossier visible le plus proche
+function pick(r){
+  if (!r) return;
+  $('#results').style.display='none'; $('#q').blur();
+  const id = r.path;
+  let n = byId.get(id);
+  if (n){
+    if (hiddenGroups.has(n.group)){ hiddenGroups.delete(n.group); buildLegend(); }
+    if (n.kind==='tag' && !showTags){ showTags = true; $('#tTags').classList.add('on'); }
+    if (!showFiles && n.kind!=='dir' && n.kind!=='tag'){ showFiles=true; $('#tFiles').classList.add('on'); }
+    render(); return setTimeout(()=>selectNode(id, true), 50);
+  }
+  let anc = id;
+  while (anc && !byId.has(anc)) anc = anc.split('/').slice(0,-1).join('/');
+  if (anc){ selected = anc; highlight(anc); focusNode(anc); }
+  if (r.kind!=='dir' && ['image','video','audio'].includes(catOf(r))){ lbList = [r]; openLightbox(0); }
+  openPanel(r.kind==='dir' ? id : (id.split('/').slice(0,-1).join('/')), {restore: {dir: {q: r.kind==='dir' ? '' : r.name, deep: false}}});
+}
+document.addEventListener('click', e => { if (!e.target.closest('.search')) $('#results').style.display='none'; });
+
+// ---------------- Barre d'outils ----------------
+const toggle = (btn, fn) => $(btn).onclick = () => { fn(); $(btn).classList.toggle('on'); render(); };
+toggle('#tRefs', () => showRefs = !showRefs);
+toggle('#tFiles', () => showFiles = !showFiles);
+$('#tLabels').onclick = () => { showLabels = !showLabels; $('#tLabels').classList.toggle('on'); };
+$('#tFit').onclick = () => mode==='3d' ? G3.zoomToFit(800, 40) : G.zoomToFit(600, 60);
+toggle('#tTags', () => showTags = !showTags);
+$('#t3d').onclick = () => setMode(mode==='3d' ? '2d' : '3d');
+$('#tRotate').onclick = () => { autoRotate = !autoRotate; $('#tRotate').classList.toggle('on', autoRotate); if (G3) G3.controls().autoRotate = autoRotate; };
+$('#tReload').onclick = async () => { const keep = selected; G && G.graphData({nodes:[],links:[]}); G3 && G3.graphData({nodes:[],links:[]}); await load(true); if (keep && byId.has(keep)) selectNode(keep, false); };
+function toggleFull(){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(()=>{}); }
+$('#tFull').onclick = toggleFull;
+$('#tQuit').onclick = async () => {
+  if (!confirmInline('#tQuit', '⏻ Quitter ?')) return;
+  const r = await (await fetch('/api/quit', {method:'POST', headers:{'X-HM-Token': HM_TOKEN}})).json().catch(() => ({ok:true}));
+  if (r.error) return alert(r.error);
+  document.body.innerHTML = '<div style="display:grid;place-items:center;height:100vh;color:#8b92a5;font:16px -apple-system,sans-serif;text-align:center">Hermes Map est arrêté.<br><br>Pour le relancer : Spotlight → « Hermes Map », ou l\'icône dans le Dock.<br><br>Tu peux fermer cet onglet.</div>';
+};
+document.addEventListener('fullscreenchange', () => { $('#tFull').classList.toggle('on', !!document.fullscreenElement); setTimeout(resizeGraph, 120); });
+$('#pclose').onclick = closePanel;
+function closePanel(){ panelPath = null; panelStack = []; $('#pback2').classList.remove('show'); $('#panel').classList.add('hidden'); $('#resizer').classList.add('hidden'); clearHL(); setTimeout(resizeGraph,0); }
+document.addEventListener('keydown', e => {
+  if (e.target.tagName==='INPUT' || e.target.tagName==='SELECT' || e.target.tagName==='TEXTAREA'){ return; }
+  if (e.key==='/'){ e.preventDefault(); $('#q').focus(); }
+  else if (e.key==='f' || e.key==='F') toggleFull();
+  else if (e.key==='Escape'){ if ($('#hmodal').style.display==='flex') hhide(); else if ($('#lightbox').style.display==='flex') closeLightbox(); else closePanel(); }
+  else if (e.key==='Backspace' && $('#lightbox').style.display!=='flex'){ e.preventDefault(); panelBack(); }
+  else if ($('#lightbox').style.display==='flex' && (e.key==='ArrowRight'||e.key==='ArrowLeft')) openLightbox(lbIndex + (e.key==='ArrowRight'?1:-1));
+});
+
+// redimensionnement du panneau
+(() => {
+  let drag = false;
+  $('#resizer').addEventListener('mousedown', () => { drag = true; document.body.style.userSelect='none'; });
+  window.addEventListener('mouseup', () => { if (drag){ drag=false; document.body.style.userSelect=''; resizeGraph(); } });
+  window.addEventListener('mousemove', e => { if (!drag) return; const w = Math.max(300, Math.min(window.innerWidth*0.8, window.innerWidth - e.clientX)); document.documentElement.style.setProperty('--panel-w', w+'px'); });
+})();
+
+// ---------------- écran d'accueil (premier lancement) et réglages ----------------
+async function showSetup(state){
+  state = state || {};
+  const det = await (await fetch('/api/setup/detect')).json();
+  const cur = det.current || {};
+  const H = det.hermes || {};
+  let el = $('#setup'); if (!el){ el = document.createElement('div'); el.id = 'setup'; document.body.appendChild(el); }
+  const first = !cur.configured;
+  const cands = det.candidates || [];
+  let chosen = null;            // résultat de /api/setup/inspect pour le dossier choisi
+  let sel = cur.root || (state.path) || (cands.find(c => c.access === 'ok' && c.kind === 'hermes') || cands.find(c => c.access === 'ok') || {}).path || '';
+  if (cur.root && !cands.some(c => c.path === cur.root)) cands.unshift({path: cur.root, label: 'Dossier actuel', name: cur.root.split('/').pop(), access: state.reason === 'denied' ? 'denied' : 'ok', kind: 'current'});
+  const arch0 = cur.archive || {};
+  const h0 = cur.hermes || {};
+  el.innerHTML = `<div class="card">
+    <h1><span class="glyph">☤</span>${first ? 'Bienvenue dans Hermes Map' : 'Réglages'}</h1>
+    <p class="lead">${first ? 'Hermes Map dessine une carte de tes dossiers de notes : dossiers, fichiers, liens entre notes et tags. Trois questions et c\'est parti.' : 'Modifie ce que Hermes Map explore. Rien n\'est déplacé ni supprimé en changeant ces réglages.'}</p>
+    <div id="sDenied"></div>
+    <section>
+      <h2><span class="n">1</span>Hermes</h2>
+      ${H.command ? `<p class="hint"><span class="ok">✓ Hermes est installé</span> : <code>${esc(H.command)}</code>${(H.profiles||[]).length ? ` · profils : ${H.profiles.map(esc).join(', ')}` : ''}. Les boutons « Mettre à jour avec Hermes » et « Reclasser » seront disponibles.</p>`
+        : `<p class="hint">Hermes n'est pas installé sur ce Mac${H.home ? ' (le dossier ~/.hermes existe, mais pas la commande hermes)' : ''}. Pas grave : la carte fonctionne sans lui. Les fonctions Hermes apparaîtront quand la commande <code>hermes</code> sera installée.</p>`}
+    </section>
+    <section>
+      <h2><span class="n">2</span>Quel dossier explorer ?</h2>
+      <div id="sCands" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="row">
+        ${det.can_choose ? '<button class="tbtn" id="sChoose">📁 Choisir un autre dossier…</button>' : ''}
+        <input type="text" id="sPath" placeholder="ou colle un chemin : /Users/…/Mes notes" style="flex:1">
+      </div>
+      <div id="sTops"></div>
+    </section>
+    <section id="sArchSec">
+      <h2><span class="n">3</span>Voulez-vous centraliser les fichiers et binaires dans un dossier d'archivage ?</h2>
+      <label class="opt" data-a="0"><input type="radio" name="sArch" value="0"><span class="t"><b>Non, tout reste où c'est</b><span class="hint">Les images, vidéos, PDF… restent à côté des notes. Rien n'est réorganisé.</span></span></label>
+      <label class="opt" data-a="1"><input type="radio" name="sArch" value="1"><span class="t"><b>Oui, centraliser dans un dossier d'archivage</b><span class="hint" id="sArchHint"></span></span></label>
+      <div class="row" id="sArchRow" style="display:none"><span class="hint">Nom du dossier d'archivage :</span><input type="text" id="sArchName" style="width:220px"><span class="hint" id="sArchState"></span></div>
+    </section>
+    ${H.command ? `<section>
+      <h2><span class="n">4</span>Profil Hermes</h2>
+      <div class="row"><span class="hint">Profil utilisé par défaut :</span><select id="sProf">${['', ...(H.profiles||[])].map(p => `<option value="${esc(p)}" ${p === (h0.profile||'') ? 'selected' : ''}>${p ? esc(p) : 'profil par défaut de Hermes'}</option>`).join('')}</select></div>
+      <div class="row"><span class="hint">Pour reclasser des fichiers (doit pouvoir écrire partout) :</span><select id="sRProf">${['', ...(H.profiles||[])].map(p => `<option value="${esc(p)}" ${p === (h0.reclass_profile||'') ? 'selected' : ''}>${p ? esc(p) : 'le même'}</option>`).join('')}</select></div>
+      <p class="hint">Si un profil porte le nom d'un dossier (ex. profil <code>pro</code> pour le dossier <code>Pro</code>), il est proposé automatiquement quand tu travailles dans ce dossier.</p>
+    </section>` : ''}
+    <details ${first ? '' : 'open'}><summary>Réglages avancés</summary><div class="grid">
+      <span>Nom affiché au centre</span><input type="text" id="sTitle" value="${esc(cur.title || '')}" placeholder="nom du dossier">
+      <span>Dossiers ignorés</span><input type="text" id="sIgnore" value="${esc((cur.ignore||[]).join(', '))}" placeholder="ex. _corbeille, Sauvegardes">
+      ${H.command ? `<span>Règles à suivre par Hermes</span><input type="text" id="sConv" value="${esc((h0.conventions||[]).join(', '))}" placeholder="fichiers .md de conventions, ex. Accueil/CONVENTIONS.md">
+      <span>Dossier de travail (reclassement)</span><input type="text" id="sWork" value="${esc(h0.workdir||'')}" placeholder="dossier principal (défaut)">
+      <span>Non sauvegardés avant reclassement</span><input type="text" id="sBSkip" value="${esc((h0.backup_skip||[]).join(', '))}" placeholder="ex. _gros_dossier">` : ''}
+      <span>Fichier de réglages</span><code>${esc(cur.config_file || '')}</code>
+    </div></details>
+    <div class="foot"><span class="hint" id="sMsg"></span>${first ? '' : '<button class="tbtn" id="sCancel">Annuler</button>'}<button class="tbtn primary" id="sGo">${first ? 'C\'est parti →' : 'Enregistrer'}</button></div>
+  </div>`;
+
+  const renderCands = () => {
+    $('#sCands').innerHTML = cands.map((c, i) => `<label class="opt ${c.path === sel ? 'on' : ''}" data-i="${i}"><input type="radio" name="sCand" ${c.path === sel ? 'checked' : ''}>
+      <span class="t"><b>${esc(c.label || c.name)}${c.access === 'denied' ? '<span class="badge bad">accès à autoriser</span>' : c.access === 'missing' ? '<span class="badge bad">introuvable</span>' : c.dirs != null ? `<span class="badge">${c.dirs} dossier(s)</span>` : ''}${c.obsidian ? '<span class="badge ok">Obsidian</span>' : ''}</b><small>${esc(c.path)}</small></span></label>`).join('');
+    document.querySelectorAll('#sCands .opt').forEach(o => o.onclick = e => { e.preventDefault(); pick(cands[+o.dataset.i].path); });
+  };
+  const archMode = v => {
+    document.querySelectorAll('#sArchSec .opt').forEach(o => { const on = o.dataset.a === v; o.classList.toggle('on', on); o.querySelector('input').checked = on; });
+    $('#sArchRow').style.display = v === '1' ? 'flex' : 'none';
+    updArchHint();
+  };
+  const updArchHint = () => {
+    const name = ($('#sArchName').value || 'Archive').trim();
+    const top = chosen && chosen.tops && chosen.tops.find(t => t !== name) || 'Voyages';
+    const pre = $('#sPrefix') && $('#sOnlyP') && $('#sOnlyP').checked ? $('#sPrefix').value : '';
+    const zone = (pre && top.startsWith(pre) ? top.slice(pre.length) : top).toLowerCase();
+    $('#sArchHint').innerHTML = `Les notes restent dans leurs dossiers ; les fichiers (images, vidéos, PDF, documents…) vont dans <code>${esc(name)}/&lt;dossier&gt;/&lt;même chemin&gt;</code>. Ex. : la note <code>${esc(top)}/japon.md</code> et ses photos dans <code>${esc(name)}/${esc(zone)}/</code>. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé tout de suite.`;
+    const exists = chosen && chosen.tops && chosen.tops.includes(name);
+    $('#sArchState').innerHTML = !chosen ? '' : exists ? '<span class="ok">✓ dossier existant (rien n\'y sera ajouté)</span>' : 'sera créé (avec un README, un catalogue et un journal)';
+  };
+  const showTops = () => {
+    const c = chosen;
+    if (!c){ $('#sTops').innerHTML = ''; return; }
+    if (c.access === 'denied'){ $('#sTops').innerHTML = deniedBox(c.path); bindDenied(); return; }
+    if (c.access !== 'ok'){ $('#sTops').innerHTML = `<p class="hint" style="color:var(--danger)">Dossier introuvable.</p>`; return; }
+    const sug = c.suggest || {include:'*', zone_prefix:''};
+    const curInc = cur.root === c.path ? (cur.include || '*') : sug.include;
+    const pre = cur.root === c.path ? (cur.zone_prefix || '') : sug.zone_prefix;
+    $('#sTops').innerHTML = `<p class="hint" style="margin-top:4px">Dossiers trouvés :</p><div class="chips">${(c.tops||[]).map(t => `<span>${esc(t)}</span>`).join('')}${c.more ? `<span>+${c.more}</span>` : ''}</div>
+      <label class="opt ${curInc === '*' ? 'on' : ''}" data-o="all"><input type="radio" name="sOnly" id="sOnlyA" ${curInc === '*' ? 'checked' : ''}><span class="t"><b>Afficher tous les dossiers</b></span></label>
+      <label class="opt ${curInc !== '*' ? 'on' : ''}" data-o="pre"><input type="radio" name="sOnly" id="sOnlyP" ${curInc !== '*' ? 'checked' : ''}><span class="t"><b>Seulement ceux qui commencent par <input type="text" id="sPrefix" value="${esc(pre || (curInc !== '*' ? curInc.replace(/\*$/, '') : ''))}" style="width:90px;padding:2px 6px" placeholder="ex. H_"></b><span class="hint">Pratique si tes dossiers de notes ont un préfixe commun au milieu d'autres dossiers. Le préfixe est masqué dans les noms de zones.</span></span></label>`;
+    document.querySelectorAll('#sTops .opt').forEach(o => o.onclick = e => { if (e.target.id === 'sPrefix') return; document.querySelectorAll('#sTops .opt').forEach(x => { x.classList.toggle('on', x === o); x.querySelector('input[type=radio]').checked = x === o; }); updArchHint(); });
+    $('#sPrefix').oninput = updArchHint;
+    // archive : existant -> proposé, sinon « non » par défaut au premier lancement
+    if (cur.root === c.path) { $('#sArchName').value = arch0.folder || c.archive_default || 'Archive'; archMode(arch0.enabled ? '1' : '0'); }
+    else { $('#sArchName').value = c.archive_found || c.archive_default || 'Archive'; archMode(c.archive_found ? '1' : '0'); }
+  };
+  const pick = async path => {
+    sel = path; renderCands(); $('#sPath').value = '';
+    $('#sTops').innerHTML = '<p class="hint">Analyse…</p>';
+    chosen = await (await fetch('/api/setup/inspect?path=' + encodeURIComponent(path))).json();
+    showTops();
+  };
+  const deniedBox = path => `<div class="warn"><b>macOS bloque l'accès à ce dossier</b> (<code>${esc(path)}</code>). À faire une seule fois :
+    <ol><li>Clique sur <b>Ouvrir les Réglages</b> : la page <b>Accès complet au disque</b> s'ouvre et Hermes Map est montrée dans le Finder.</li>
+    <li>Si Hermes Map est déjà dans la liste, sélectionne-la et retire-la (bouton −). Puis glisse Hermes Map dans la liste (ou bouton +) et active-la.</li>
+    <li>Quitte Hermes Map (⏻) et relance-la.</li></ol>
+    <div class="row" style="margin-top:8px"><button class="tbtn" data-priv="1">Ouvrir les Réglages</button><button class="tbtn" data-retry="1">Réessayer</button></div></div>`;
+  const bindDenied = () => {
+    document.querySelectorAll('[data-priv]').forEach(b => b.onclick = () => hpost('/api/os/privacy', {}));
+    document.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => pick(sel));
+  };
+  if (state.reason === 'denied'){ $('#sDenied').innerHTML = deniedBox(state.path || cur.root || ''); bindDenied(); }
+  else if (state.reason === 'missing') $('#sDenied').innerHTML = `<div class="warn">Le dossier <code>${esc(state.path||'')}</code> est introuvable (renommé, déplacé ?). Choisis-le à nouveau.</div>`;
+
+  document.querySelectorAll('#sArchSec .opt').forEach(o => o.onclick = e => { e.preventDefault(); archMode(o.dataset.a); });
+  $('#sArchName').oninput = updArchHint;
+  if ($('#sChoose')) $('#sChoose').onclick = async () => {
+    $('#sMsg').textContent = 'La fenêtre de choix peut s\'ouvrir derrière le navigateur…';
+    const r = await hpost('/api/setup/choose', {});
+    $('#sMsg').textContent = r.error || '';
+    if (r.path){ if (!cands.some(c => c.path === r.path)) cands.push({path: r.path, label: r.path.split('/').pop() || r.path, name: r.path}); pick(r.path); }
+  };
+  let tp; $('#sPath').oninput = () => { clearTimeout(tp); tp = setTimeout(() => { const v = $('#sPath').value.trim(); if (v.startsWith('/') || v.startsWith('~')){ if (!cands.some(c => c.path === v)) cands.push({path: v, label: v.split('/').filter(Boolean).pop() || v, name: v}); pick(v); $('#sPath').value = v; } }, 500); };
+  if ($('#sCancel')) $('#sCancel').onclick = () => el.remove();
+  const list = v => (v || '').split(',').map(x => x.trim()).filter(Boolean);
+  $('#sGo').onclick = async () => {
+    if (!chosen || chosen.access !== 'ok'){ $('#sMsg').textContent = 'Choisis d\'abord un dossier accessible.'; return; }
+    const onlyPre = $('#sOnlyP') && $('#sOnlyP').checked && $('#sPrefix').value.trim();
+    const archOn = document.querySelector('input[name=sArch][value="1"]').checked;
+    const body = {root: chosen.path, include: onlyPre ? $('#sPrefix').value.trim() + '*' : '*', zone_prefix: onlyPre ? $('#sPrefix').value.trim() : '',
+      title: $('#sTitle').value.trim(), ignore: list($('#sIgnore').value),
+      archive: {enabled: archOn, folder: ($('#sArchName').value || 'Archive').trim().replace(/^\/+|\/+$/g, '')}};
+    if (H.command) body.hermes = {profile: $('#sProf').value, reclass_profile: $('#sRProf').value, conventions: list($('#sConv').value), workdir: $('#sWork').value.trim(), backup_skip: list($('#sBSkip').value)};
+    $('#sGo').disabled = true; $('#sMsg').textContent = 'Enregistrement…';
+    const r = await hpost('/api/setup/save', body);
+    $('#sGo').disabled = false;
+    if (r.error === 'denied'){ $('#sMsg').textContent = ''; $('#sDenied').innerHTML = deniedBox(r.path); bindDenied(); el.scrollTop = 0; return; }
+    if (r.error){ $('#sMsg').textContent = '⚠️ ' + r.error; return; }
+    $('#sMsg').textContent = r.made && r.made.length ? 'Créé : ' + r.made.join(', ') : 'C\'est enregistré.';
+    setTimeout(() => location.reload(), r.made && r.made.length ? 1200 : 300);
+  };
+  renderCands();
+  if (sel) pick(sel);
+}
+$('#tSettings').onclick = () => showSetup({});
+
+load();
+// battement de cœur : tant qu'une page est ouverte, l'app reste allumée (elle s'éteint seule ensuite)
+setInterval(() => fetch('/api/ping').catch(()=>{}), 20000); fetch('/api/ping').catch(()=>{});
+})();
+</script>
+</body>
+</html>
