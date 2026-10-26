@@ -13,14 +13,25 @@ mkdir -p "$SUPPORT" "$HOME/Library/Logs"
 LOGIN_PATH="$(/bin/zsh -lc 'print -rn -- $PATH' 2>/dev/null)"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:${LOGIN_PATH:+$LOGIN_PATH:}/usr/bin:/bin:/usr/sbin:/sbin"
 
-alive() { [[ -n "$1" ]] && /usr/bin/curl -s -m 2 "http://127.0.0.1:$1/api/ping" 2>/dev/null | /usr/bin/grep -q hermes-map; }
+ping() { /usr/bin/curl -s -m 2 "http://127.0.0.1:$1/api/ping" 2>/dev/null; }
+alive() { [[ -n "$1" ]] && ping "$1" | /usr/bin/grep -q hermes-map; }
 
-# déjà lancé ? on ouvre simplement la page
+# déjà lancé ? on ouvre simplement la page… sauf si c'est une version plus ancienne que l'app installée
 port=""
 [[ -f "$PORTFILE" ]] && port="$(<"$PORTFILE")"
 if alive "$port"; then
-  /usr/bin/open "http://127.0.0.1:$port/"
-  exit 0
+  info="$(ping "$port")"
+  started="$(print -r -- "$info" | /usr/bin/sed -n 's/.*"started": *\([0-9]*\).*/\1/p')"
+  pid="$(print -r -- "$info" | /usr/bin/sed -n 's/.*"pid": *\([0-9]*\).*/\1/p')"
+  built="$(/usr/bin/stat -f %m "$RES/app/hermes_map.py" 2>/dev/null)"
+  if [[ -n "$started" && -n "$built" && "$started" -ge "$built" ]]; then
+    /usr/bin/open "http://127.0.0.1:$port/"
+    exit 0
+  fi
+  echo "$(date '+%Y-%m-%d %H:%M:%S') : ancienne version encore lancée (pid $pid), redémarrage" >> "$LOG"
+  [[ -n "$pid" ]] && kill "$pid" 2>/dev/null
+  for i in {1..40}; do alive "$port" || break; sleep 0.25; done
+  alive "$port" && [[ -n "$pid" ]] && kill -9 "$pid" 2>/dev/null
 fi
 
 PY=""

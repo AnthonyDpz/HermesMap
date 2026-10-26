@@ -39,6 +39,7 @@ import media_tools  # noqa: E402
 import mover  # noqa: E402
 import settings  # noqa: E402
 from hermes_runner import find_hermes  # noqa: E402
+STARTED = int(time.time())          # le lanceur compare avec la date des fichiers pour repérer une ancienne version
 TOKEN = secrets.token_urlsafe(24)   # jeton anti-CSRF pour les actions qui écrivent (bouton Hermes)
 STATIC = APP_DIR / "static"
 
@@ -1011,7 +1012,8 @@ def make_handler(app: App):
                     return self.send_file(p)
                 if u.path == "/api/ping":
                     app.last_ping = time.time()
-                    return self.send_json({"app": "hermes-map", "version": VERSION, "pid": os.getpid()})
+                    return self.send_json({"app": "hermes-map", "version": VERSION, "pid": os.getpid(),
+                                           "started": STARTED})
                 if u.path == "/api/config":
                     d = app.cfg.to_public()
                     d["setup"] = app.setup
