@@ -21,6 +21,7 @@ ARCHIVE_NAMES = ("archive", "archives", "archivage")
 
 DEFAULTS = {
     "version": 1,
+    "language": "",            # langue de l'interface : "fr", "en" (vide = celle du navigateur)
     "root": None,              # dossier exploré
     "include": "*",            # dossiers de 1er niveau affichés (motifs séparés par des virgules)
     "folders": [],             # liste explicite des dossiers de notes affichés (vide = tous, selon « include »)
@@ -131,6 +132,19 @@ class Settings:
         tmp = CONFIG_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), "utf-8")
         tmp.replace(CONFIG_FILE)
+
+
+def save_language(lg):
+    """Enregistre seulement la langue, sans toucher au reste du fichier de réglages."""
+    try:
+        data = json.loads(CONFIG_FILE.read_text("utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    data["language"] = lg
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+    tmp.replace(CONFIG_FILE)
 
 
 def load():
@@ -257,6 +271,25 @@ documents…) pour que les autres dossiers ne contiennent que des notes.
   `| date ISO | action | from | to | ancien nom | nouveau nom | bytes | note |`.
 """
 
+ARCHIVE_README_EN = """# Archive
+
+This folder is managed with **Hermes Map**: it gathers the “heavy” files (images, videos, PDFs,
+documents…) so that the other folders only contain notes.
+
+## Filing rule
+
+- Notes (.md) stay in their folder, for example `{exemple_note}`.
+- Their files are stored in the archive's **mirror** folder:
+  `{exemple_miroir}` (same path, under the zone name in lowercase).
+- Hermes Map shows both together: opening the note's folder also shows its archived files.
+
+## Tracking files
+
+- `{catalog}`: one JSON entry per line (`rel` = path from this folder, `note`, `title`…).
+- `{log}`: log of moves, as a table
+  `| date ISO | action | from | to | ancien nom | nouveau nom | bytes | note |`.
+"""
+
 LOG_HEADER = ("# Journal des déplacements\n\n"
               "| date ISO | action | from | to | ancien nom | nouveau nom | bytes | note |\n"
               "|---|---|---|---|---|---|---|---|\n")
@@ -277,8 +310,10 @@ def init_archive(s: Settings):
     zone = s.zone_name(ex)
     readme = d / "README.md"
     if not readme.exists() and not any((d / n).exists() for n in ("AGENTS.md", "INDEX.md")):
-        readme.write_text(ARCHIVE_README.format(
-            exemple_note=f"{ex}/voyages/japon.md", exemple_miroir=f"{s.archive}/{zone.lower()}/voyages/photo.jpg",
+        en = s.data.get("language") == "en"
+        readme.write_text((ARCHIVE_README_EN if en else ARCHIVE_README).format(
+            exemple_note=f"{ex}/{'trips/japan' if en else 'voyages/japon'}.md",
+            exemple_miroir=f"{s.archive}/{zone.lower()}/{'trips' if en else 'voyages'}/photo.jpg",
             catalog=s.data["archive"]["catalog"], log=s.data["archive"]["log"]), "utf-8")
         made.append(f"{s.archive}/README.md")
     log = s.root / s.archive_log

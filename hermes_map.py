@@ -38,6 +38,7 @@ from hermes_runner import Runner  # noqa: E402
 import media_tools  # noqa: E402
 import mover  # noqa: E402
 import settings  # noqa: E402
+import i18n  # noqa: E402
 from hermes_runner import find_hermes  # noqa: E402
 STARTED = int(time.time())          # le lanceur compare avec la date des fichiers pour repérer une ancienne version
 TOKEN = secrets.token_urlsafe(24)   # jeton anti-CSRF pour les actions qui écrivent (bouton Hermes)
@@ -932,7 +933,7 @@ def make_handler(app: App):
             return True
 
         def send_json(self, obj, code=200):
-            data = json.dumps(obj, ensure_ascii=False).encode()
+            data = json.dumps(i18n.tr_obj(obj), ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
@@ -982,7 +983,11 @@ def make_handler(app: App):
             path = q.get("path", [""])[0]
             try:
                 if u.path in ("/", "/index.html"):
-                    html = (STATIC / "index.html").read_text("utf-8").replace("__HM_TOKEN__", TOKEN)
+                    lang = (app.cfg.data.get("language") or "").lower()
+                    html = ((STATIC / "index.html").read_text("utf-8").replace("__HM_TOKEN__", TOKEN)
+                            .replace("__HM_LANG__", lang if lang in ("fr", "en") else "")
+                            .replace("__HM_I18N__", json.dumps({k: i18n.DATA.get(k, {}) for k in ("exact", "patterns")},
+                                                               ensure_ascii=False).replace("</", "<\\/")))
                     data = html.encode()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1192,6 +1197,15 @@ def make_handler(app: App):
                         return self.send_json(mv.undo(body.get("id", "")))
                     return self.send_json(mv.run(body.get("items", []), body.get("create_dirs", True),
                                                  body.get("update_index", True), body.get("note", "")))
+                if u.path == "/api/lang":
+                    n = int(self.headers.get("Content-Length") or 0)
+                    body = json.loads(self.rfile.read(n) or b"{}") if n else {}
+                    lg = body.get("lang")
+                    if lg not in ("fr", "en"):
+                        return self.send_json({"error": "langue inconnue"}, 400)
+                    app.cfg.data["language"] = lg
+                    settings.save_language(lg)
+                    return self.send_json({"ok": True, "lang": lg})
                 if u.path in ("/api/setup/save", "/api/setup/choose", "/api/os/privacy"):
                     n = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(n) or b"{}") if n else {}
