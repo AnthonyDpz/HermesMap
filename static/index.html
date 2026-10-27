@@ -312,6 +312,12 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 #setup details .grid{display:grid;grid-template-columns:max-content 1fr;gap:8px 12px;align-items:center;margin-top:10px;font-size:13px}
 #setup .sponsor a{color:var(--accent);text-decoration:none}
 #setup .sponsor a:hover{text-decoration:underline}
+#setup .tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;max-height:260px;overflow:auto;padding:2px}
+#setup .tops label{display:flex;gap:7px;align-items:center;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg3);cursor:pointer;font-size:13px;min-width:0}
+#setup .tops label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#setup .tops label.on{border-color:#6b5a2e;background:#221d12}
+#setup .tops label.arch{opacity:.75;cursor:default;border-style:dashed}
+#setup .tops input{accent-color:var(--accent)}
 #setup code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 6px;border-radius:4px}
 </style>
 </head>
@@ -1922,7 +1928,7 @@ async function showSetup(state){
         : `<p class="hint">Hermes n'est pas installé sur ce Mac${H.home ? ' (le dossier ~/.hermes existe, mais pas la commande hermes)' : ''}. Pas grave : la carte fonctionne sans lui. Les fonctions Hermes apparaîtront quand la commande <code>hermes</code> sera installée.</p>`}
     </section>
     <section>
-      <h2><span class="n">2</span>Quel dossier explorer ?</h2>
+      <h2><span class="n">2</span>Où sont tes notes ?</h2>
       <div id="sCands" style="display:flex;flex-direction:column;gap:8px"></div>
       <div class="row">
         ${det.can_choose ? '<button class="tbtn" id="sChoose">📁 Choisir un autre dossier…</button>' : ''}
@@ -1934,7 +1940,7 @@ async function showSetup(state){
       <h2><span class="n">3</span>Voulez-vous centraliser les fichiers et binaires dans un dossier d'archivage ?</h2>
       <label class="opt" data-a="0"><input type="radio" name="sArch" value="0"><span class="t"><b>Non, tout reste où c'est</b><span class="hint">Les images, vidéos, PDF… restent à côté des notes. Rien n'est réorganisé.</span></span></label>
       <label class="opt" data-a="1"><input type="radio" name="sArch" value="1"><span class="t"><b>Oui, centraliser dans un dossier d'archivage</b><span class="hint" id="sArchHint"></span></span></label>
-      <div class="row" id="sArchRow" style="display:none"><span class="hint">Nom du dossier d'archivage :</span><input type="text" id="sArchName" style="width:220px"><span class="hint" id="sArchState"></span></div>
+      <div class="row" id="sArchRow" style="display:none"><span class="hint">Dossier de stockage miroir :</span><select id="sArchSel"></select><input type="text" id="sArchName" style="width:200px;display:none" placeholder="nom du nouveau dossier"><span class="hint" id="sArchState"></span></div>
     </section>
     ${H.command ? `<section>
       <h2><span class="n">4</span>Profil Hermes</h2>
@@ -1943,6 +1949,7 @@ async function showSetup(state){
       <p class="hint">Si un profil porte le nom d'un dossier (ex. profil <code>pro</code> pour le dossier <code>Pro</code>), il est proposé automatiquement quand tu travailles dans ce dossier.</p>
     </section>` : ''}
     <details ${first ? '' : 'open'}><summary>Réglages avancés</summary><div class="grid">
+      <span>Préfixe masqué dans les noms</span><input type="text" id="sPrefix" value="${esc(cur.zone_prefix || '')}" placeholder="facultatif, ex. N_ : N_Pro s'affiche « Pro »">
       <span>Nom affiché au centre</span><input type="text" id="sTitle" value="${esc(cur.title || '')}" placeholder="nom du dossier">
       <span>Dossiers ignorés</span><input type="text" id="sIgnore" value="${esc((cur.ignore||[]).join(', '))}" placeholder="ex. _corbeille, Sauvegardes">
       ${H.command ? `<span>Règles à suivre par Hermes</span><input type="text" id="sConv" value="${esc((h0.conventions||[]).join(', '))}" placeholder="fichiers .md de conventions, ex. Accueil/CONVENTIONS.md">
@@ -1959,36 +1966,73 @@ async function showSetup(state){
       <span class="t"><b>${esc(c.label || c.name)}${c.access === 'denied' ? '<span class="badge bad">accès à autoriser</span>' : c.access === 'missing' ? '<span class="badge bad">introuvable</span>' : c.dirs != null ? `<span class="badge">${c.dirs} dossier(s)</span>` : ''}${c.obsidian ? '<span class="badge ok">Obsidian</span>' : ''}</b><small>${esc(c.path)}</small></span></label>`).join('');
     document.querySelectorAll('#sCands .opt').forEach(o => o.onclick = e => { e.preventDefault(); pick(cands[+o.dataset.i].path); });
   };
+  const archName = () => { const v = $('#sArchSel').value; return (v === '__new' ? $('#sArchName').value : v || '').trim().replace(/^\/+|\/+$/g, '') || 'Archive'; };
+  const archOn = () => document.querySelector('input[name=sArch][value="1"]').checked;
   const archMode = v => {
     document.querySelectorAll('#sArchSec .opt').forEach(o => { const on = o.dataset.a === v; o.classList.toggle('on', on); o.querySelector('input').checked = on; });
     $('#sArchRow').style.display = v === '1' ? 'flex' : 'none';
-    updArchHint();
+    updArchHint(); markTops();
   };
+  const pre = () => ($('#sPrefix').value || '').trim();
   const updArchHint = () => {
-    const name = ($('#sArchName').value || 'Archive').trim();
-    const top = chosen && chosen.tops && chosen.tops.find(t => t !== name) || 'Voyages';
-    const pre = $('#sPrefix') && $('#sOnlyP') && $('#sOnlyP').checked ? $('#sPrefix').value : '';
-    const zone = (pre && top.startsWith(pre) ? top.slice(pre.length) : top).toLowerCase();
-    $('#sArchHint').innerHTML = `Les notes restent dans leurs dossiers ; les fichiers (images, vidéos, PDF, documents…) vont dans <code>${esc(name)}/&lt;dossier&gt;/&lt;même chemin&gt;</code>. Ex. : la note <code>${esc(top)}/japon.md</code> et ses photos dans <code>${esc(name)}/${esc(zone)}/</code>. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé tout de suite.`;
-    const exists = chosen && chosen.tops && chosen.tops.includes(name);
+    const name = archName();
+    const checked = [...document.querySelectorAll('#sTops input[data-t]:checked')].map(i => i.dataset.t).filter(t => t !== name);
+    const top = checked[0] || (chosen && (chosen.all||[]).find(t => t !== name)) || 'Voyages';
+    const p = pre(), zone = (p && top.startsWith(p) ? top.slice(p.length) : top).toLowerCase();
+    $('#sArchHint').innerHTML = `Les notes restent dans leurs dossiers ; les fichiers (images, vidéos, PDF, documents…) vont dans le dossier de stockage, au même chemin : la note <code>${esc(top)}/japon.md</code> et ses photos dans <code>${esc(name)}/${esc(zone)}/</code>. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé tout de suite.`;
+    const exists = chosen && (chosen.all||[]).includes(name);
+    $('#sArchName').style.display = $('#sArchSel').value === '__new' ? '' : 'none';
     $('#sArchState').innerHTML = !chosen ? '' : exists ? '<span class="ok">✓ dossier existant (rien n\'y sera ajouté)</span>' : 'sera créé (avec un README, un catalogue et un journal)';
   };
+  // le dossier de stockage n'est pas un dossier de notes : on le signale dans la liste
+  const markTops = () => {
+    const a = archOn() ? archName() : null;
+    document.querySelectorAll('#sTops label[data-l]').forEach(l => {
+      const inp = l.querySelector('input'), isA = l.dataset.l === a;
+      l.classList.toggle('arch', isA); inp.disabled = isA;
+      l.querySelector('span').textContent = (isA ? '🗄 ' : '') + l.dataset.l;
+      l.classList.toggle('on', inp.checked && !isA);
+    });
+    const n = document.querySelectorAll('#sTops input[data-t]:checked:not(:disabled)').length;
+    if ($('#sCount')) $('#sCount').textContent = `${n} dossier(s) de notes`;
+  };
+  const globOk = (name, inc) => !inc || inc === '*' || inc.split(',').map(x => x.trim()).filter(Boolean)
+    .some(p => new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$').test(name));
   const showTops = () => {
     const c = chosen;
     if (!c){ $('#sTops').innerHTML = ''; return; }
     if (c.access === 'denied'){ $('#sTops').innerHTML = deniedBox(c.path); bindDenied(); return; }
     if (c.access !== 'ok'){ $('#sTops').innerHTML = `<p class="hint" style="color:var(--danger)">Dossier introuvable.</p>`; return; }
-    const sug = c.suggest || {include:'*', zone_prefix:''};
-    const curInc = cur.root === c.path ? (cur.include || '*') : sug.include;
-    const pre = cur.root === c.path ? (cur.zone_prefix || '') : sug.zone_prefix;
-    $('#sTops').innerHTML = `<p class="hint" style="margin-top:4px">Dossiers trouvés :</p><div class="chips">${(c.tops||[]).map(t => `<span>${esc(t)}</span>`).join('')}${c.more ? `<span>+${c.more}</span>` : ''}</div>
-      <label class="opt ${curInc === '*' ? 'on' : ''}" data-o="all"><input type="radio" name="sOnly" id="sOnlyA" ${curInc === '*' ? 'checked' : ''}><span class="t"><b>Afficher tous les dossiers</b></span></label>
-      <label class="opt ${curInc !== '*' ? 'on' : ''}" data-o="pre"><input type="radio" name="sOnly" id="sOnlyP" ${curInc !== '*' ? 'checked' : ''}><span class="t"><b>Seulement ceux qui commencent par <input type="text" id="sPrefix" value="${esc(pre || (curInc !== '*' ? curInc.replace(/\*$/, '') : ''))}" style="width:90px;padding:2px 6px" placeholder="ex. N_"></b><span class="hint">Pratique si tes dossiers de notes ont un préfixe commun au milieu d'autres dossiers. Le préfixe est masqué dans les noms de zones.</span></span></label>`;
-    document.querySelectorAll('#sTops .opt').forEach(o => o.onclick = e => { if (e.target.id === 'sPrefix') return; document.querySelectorAll('#sTops .opt').forEach(x => { x.classList.toggle('on', x === o); x.querySelector('input[type=radio]').checked = x === o; }); updArchHint(); });
-    $('#sPrefix').oninput = updArchHint;
-    // archive : existant -> proposé, sinon « non » par défaut au premier lancement
-    if (cur.root === c.path) { $('#sArchName').value = arch0.folder || c.archive_default || 'Archive'; archMode(arch0.enabled ? '1' : '0'); }
-    else { $('#sArchName').value = c.archive_found || c.archive_default || 'Archive'; archMode(c.archive_found ? '1' : '0'); }
+    const all = c.all || [];
+    const same = cur.root === c.path;
+    let isOn, autoNew;
+    if (same){
+      const f = cur.folders || [], hid = cur.hidden_tops || [];
+      isOn = t => f.length ? f.includes(t) : (!hid.includes(t) && globOk(t, cur.include));
+      autoNew = !f.length && (!cur.include || cur.include === '*');
+    } else {
+      const sp = (c.suggest || {}).zone_prefix || '';
+      isOn = t => !sp || t.startsWith(sp);
+      autoNew = !sp;
+      if (!$('#sPrefix').value) $('#sPrefix').value = sp;
+    }
+    $('#sTops').innerHTML = all.length ? `<p class="hint" style="margin-top:6px"><b>Quels dossiers contiennent tes notes ?</b> Coche ceux à afficher sur la carte (le côté « notes »).</p>
+      <div class="row"><button class="tbtn" id="sAll">Tout cocher</button><button class="tbtn" id="sNone">Tout décocher</button><span class="hint" id="sCount"></span></div>
+      <div class="tops">${all.map(t => `<label data-l="${esc(t)}"><input type="checkbox" data-t="${esc(t)}" ${isOn(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>
+      <label class="row hint" style="cursor:pointer"><input type="checkbox" id="sAutoNew" ${autoNew ? 'checked' : ''}> Afficher aussi les dossiers créés plus tard</label>`
+      : `<p class="hint">Ce dossier ne contient pas de sous-dossier : ses fichiers seront affichés directement.</p>`;
+    const count = () => { const n = document.querySelectorAll('#sTops input[data-t]:checked:not(:disabled)').length; if ($('#sCount')) $('#sCount').textContent = `${n} dossier(s) de notes`; };
+    document.querySelectorAll('#sTops input[data-t]').forEach(i => i.onchange = () => { markTops(); count(); updArchHint(); });
+    if ($('#sAll')) { $('#sAll').onclick = () => { document.querySelectorAll('#sTops input[data-t]').forEach(i => i.checked = true); markTops(); count(); };
+      $('#sNone').onclick = () => { document.querySelectorAll('#sTops input[data-t]').forEach(i => i.checked = false); markTops(); count(); }; }
+    // dossier de stockage miroir : un dossier existant, ou un nouveau
+    const found = same ? (arch0.folder || c.archive_found) : c.archive_found;
+    const newName = (same && arch0.folder && !all.includes(arch0.folder)) ? arch0.folder : (c.archive_default || 'Archive');
+    $('#sArchSel').innerHTML = `<option value="__new">➕ Nouveau dossier…</option>` + all.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    $('#sArchSel').value = found && all.includes(found) ? found : '__new';
+    $('#sArchName').value = newName;
+    archMode(same ? (arch0.enabled ? '1' : '0') : (c.archive_found ? '1' : '0'));
+    count();
   };
   const pick = async path => {
     sel = path; renderCands(); $('#sPath').value = '';
@@ -2009,7 +2053,9 @@ async function showSetup(state){
   else if (state.reason === 'missing') $('#sDenied').innerHTML = `<div class="warn">Le dossier <code>${esc(state.path||'')}</code> est introuvable (renommé, déplacé ?). Choisis-le à nouveau.</div>`;
 
   document.querySelectorAll('#sArchSec .opt').forEach(o => o.onclick = e => { e.preventDefault(); archMode(o.dataset.a); });
-  $('#sArchName').oninput = updArchHint;
+  $('#sArchName').oninput = () => { updArchHint(); markTops(); };
+  $('#sArchSel').onchange = () => { updArchHint(); markTops(); };
+  $('#sPrefix').oninput = updArchHint;
   if ($('#sChoose')) $('#sChoose').onclick = async () => {
     $('#sMsg').textContent = 'La fenêtre de choix peut s\'ouvrir derrière le navigateur…';
     const r = await hpost('/api/setup/choose', {});
@@ -2021,11 +2067,14 @@ async function showSetup(state){
   const list = v => (v || '').split(',').map(x => x.trim()).filter(Boolean);
   $('#sGo').onclick = async () => {
     if (!chosen || chosen.access !== 'ok'){ $('#sMsg').textContent = 'Choisis d\'abord un dossier accessible.'; return; }
-    const onlyPre = $('#sOnlyP') && $('#sOnlyP').checked && $('#sPrefix').value.trim();
-    const archOn = document.querySelector('input[name=sArch][value="1"]').checked;
-    const body = {root: chosen.path, include: onlyPre ? $('#sPrefix').value.trim() + '*' : '*', zone_prefix: onlyPre ? $('#sPrefix').value.trim() : '',
-      title: $('#sTitle').value.trim(), ignore: list($('#sIgnore').value),
-      archive: {enabled: archOn, folder: ($('#sArchName').value || 'Archive').trim().replace(/^\/+|\/+$/g, '')}};
+    const a = archOn() ? archName() : null;
+    const boxes = [...document.querySelectorAll('#sTops input[data-t]')].filter(i => i.dataset.t !== a);
+    const on = boxes.filter(i => i.checked).map(i => i.dataset.t), off = boxes.filter(i => !i.checked).map(i => i.dataset.t);
+    if (boxes.length && !on.length){ $('#sMsg').textContent = 'Coche au moins un dossier de notes.'; return; }
+    const autoNew = !$('#sAutoNew') || $('#sAutoNew').checked;
+    const body = {root: chosen.path, include: '*', folders: autoNew ? [] : on, hidden_tops: autoNew ? off : [],
+      zone_prefix: pre(), title: $('#sTitle').value.trim(), ignore: list($('#sIgnore').value),
+      archive: {enabled: !!a, folder: a || archName()}};
     if (H.command) body.hermes = {profile: $('#sProf').value, reclass_profile: $('#sRProf').value, conventions: list($('#sConv').value), workdir: $('#sWork').value.trim(), backup_skip: list($('#sBSkip').value)};
     $('#sGo').disabled = true; $('#sMsg').textContent = 'Enregistrement…';
     const r = await hpost('/api/setup/save', body);

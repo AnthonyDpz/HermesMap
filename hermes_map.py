@@ -1253,7 +1253,7 @@ def make_handler(app: App):
         def setup_save(self, body):
             """Enregistre les réglages de l'écran d'accueil (ou de la fenêtre Réglages) et relance l'analyse."""
             data = settings._merge(app.cfg.data, {})
-            for k in ("root", "include", "title", "zone_prefix", "ignore"):
+            for k in ("root", "include", "folders", "hidden_tops", "title", "zone_prefix", "ignore"):
                 if k in body:
                     data[k] = body[k]
             for k in ("archive", "hermes"):
