@@ -1,6 +1,9 @@
 {
  "_comment": "Traductions FR -> EN de l'interface. Clés = texte français affiché ; {0} = partie variable ({0#} = nombre). Voir tools/i18n_extract.py.",
  "exact": {
+  " · 5 000 premiers": " · first 5,000",
+  " · chargement des sous-dossiers…": " · loading subfolders…",
+  " · sous-dossiers compris": " · including subfolders",
   "(aucune différence)": "(no difference)",
   "(l'extension est gardée si tu ne la tapes pas)": "(the extension is kept if you don't type it)",
   "(le dossier ~/.hermes existe, mais pas la commande hermes)": "(the ~/.hermes folder exists, but not the hermes command)",
@@ -461,16 +464,19 @@
   "Conversion impossible :",
   "Créé :",
   "Documents",
+  "Documents ({0}{1}) · clic = lire ici, sans quitter le dossier",
   "Durée :",
   "Enter",
   "Escape",
   "Finder",
   "Hermes",
   "Hermes Map",
+  "Hermes Map a été mis à jour pendant qu'il tournait : clique sur ⏻ (deux fois), puis relance l'app.",
   "Hooks",
   "Hub",
   "Logs",
   "Markdown",
+  "Médias ({0}{1}) · survol d'une vidéo = aperçu, clic = plein écran",
   "Obsidian",
   "Plugins",
   "Pro",
@@ -483,10 +489,14 @@
   "Trips",
   "Voyages",
   "Zones",
+  "position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;background:#2a1a1a;border:1px solid #5a2a2a;color:#e6e8ee;padding:12px 16px;border-radius:10px;font:14px var(--sans);max-width:90vw",
   "python3 hermes_map.py --hermes /le/chemin/affiché",
   "{0} {1}px -apple-system, Inter, sans-serif",
   "{dossier}",
   "{fichiers}",
-  "{nom}"
+  "{nom}",
+  "· 5 000 premiers",
+  "· chargement des sous-dossiers…",
+  "· sous-dossiers compris"
  ]
 }
