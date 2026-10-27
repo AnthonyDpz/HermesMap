@@ -17,7 +17,21 @@ A visual explorer for your notes folders: a mind map of folders, files and the l
 - **Move / rename** files by hand, with catalogue, log and note links updated — and undo.
 - **With Hermes installed**: “Update with Hermes” (links, tags, INDEX.md from where you are) and “Reclassify with Hermes” (analyse, rename, file away), with live activity on the map, a backup before every run, a full diff and one-click undo.
 
-## Install (macOS)
+## Download (Mac, Windows, Linux)
+
+Ready-to-run builds are attached to each release on the [Releases page](https://github.com/AnthonyDpz/HermesMap/releases) (built automatically by GitHub Actions from the Rust version in [`rust/`](rust/)):
+
+| System | File | First launch |
+|---|---|---|
+| macOS (Apple Silicon and Intel) | `hermes-map-macos.zip` | Unzip, move **Hermes Map.app** to Applications, then right-click → **Open** (the app is not notarised by Apple). Grant **Full Disk Access** to read iCloud Drive. |
+| Windows 10 / 11 | `hermes-map-windows-x86_64.zip` | Unzip and double-click **Hermes Map.exe**. If SmartScreen warns, click **More info → Run anyway** (the app is not signed). |
+| Linux (x86_64) | `hermes-map-linux-x86_64.tar.gz` | Extract and run `./hermes-map`. |
+
+The app opens in your browser. Launching it again while it runs reopens the page; it stops by itself two minutes after the last tab is closed.
+
+Build it yourself: `cd rust && cargo build --release` (Rust 1.77+).
+
+## Install from source (macOS)
 
 Requires Apple's command line tools (they also provide Python 3):
 
