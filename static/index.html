@@ -310,6 +310,8 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 #setup .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:650;padding:9px 18px}
 #setup details summary{cursor:pointer;color:var(--muted);font-size:13px}
 #setup details .grid{display:grid;grid-template-columns:max-content 1fr;gap:8px 12px;align-items:center;margin-top:10px;font-size:13px}
+#setup .sponsor a{color:var(--accent);text-decoration:none}
+#setup .sponsor a:hover{text-decoration:underline}
 #setup code{font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 6px;border-radius:4px}
 </style>
 </head>
@@ -1948,6 +1950,7 @@ async function showSetup(state){
       <span>Non sauvegardés avant reclassement</span><input type="text" id="sBSkip" value="${esc((h0.backup_skip||[]).join(', '))}" placeholder="ex. _gros_dossier">` : ''}
       <span>Fichier de réglages</span><code>${esc(cur.config_file || '')}</code>
     </div></details>
+    <p class="hint sponsor">Hermes Map est gratuit et open source. S'il t'est utile, tu peux <a href="https://github.com/sponsors/AnthonyDpz" target="_blank" rel="noopener noreferrer">☕ soutenir le projet</a>.</p>
     <div class="foot"><span class="hint" id="sMsg"></span>${first ? '' : '<button class="tbtn" id="sCancel">Annuler</button>'}<button class="tbtn primary" id="sGo">${first ? 'C\'est parti →' : 'Enregistrer'}</button></div>
   </div>`;
 
@@ -1980,7 +1983,7 @@ async function showSetup(state){
     const pre = cur.root === c.path ? (cur.zone_prefix || '') : sug.zone_prefix;
     $('#sTops').innerHTML = `<p class="hint" style="margin-top:4px">Dossiers trouvés :</p><div class="chips">${(c.tops||[]).map(t => `<span>${esc(t)}</span>`).join('')}${c.more ? `<span>+${c.more}</span>` : ''}</div>
       <label class="opt ${curInc === '*' ? 'on' : ''}" data-o="all"><input type="radio" name="sOnly" id="sOnlyA" ${curInc === '*' ? 'checked' : ''}><span class="t"><b>Afficher tous les dossiers</b></span></label>
-      <label class="opt ${curInc !== '*' ? 'on' : ''}" data-o="pre"><input type="radio" name="sOnly" id="sOnlyP" ${curInc !== '*' ? 'checked' : ''}><span class="t"><b>Seulement ceux qui commencent par <input type="text" id="sPrefix" value="${esc(pre || (curInc !== '*' ? curInc.replace(/\*$/, '') : ''))}" style="width:90px;padding:2px 6px" placeholder="ex. H_"></b><span class="hint">Pratique si tes dossiers de notes ont un préfixe commun au milieu d'autres dossiers. Le préfixe est masqué dans les noms de zones.</span></span></label>`;
+      <label class="opt ${curInc !== '*' ? 'on' : ''}" data-o="pre"><input type="radio" name="sOnly" id="sOnlyP" ${curInc !== '*' ? 'checked' : ''}><span class="t"><b>Seulement ceux qui commencent par <input type="text" id="sPrefix" value="${esc(pre || (curInc !== '*' ? curInc.replace(/\*$/, '') : ''))}" style="width:90px;padding:2px 6px" placeholder="ex. N_"></b><span class="hint">Pratique si tes dossiers de notes ont un préfixe commun au milieu d'autres dossiers. Le préfixe est masqué dans les noms de zones.</span></span></label>`;
     document.querySelectorAll('#sTops .opt').forEach(o => o.onclick = e => { if (e.target.id === 'sPrefix') return; document.querySelectorAll('#sTops .opt').forEach(x => { x.classList.toggle('on', x === o); x.querySelector('input[type=radio]').checked = x === o; }); updArchHint(); });
     $('#sPrefix').oninput = updArchHint;
     // archive : existant -> proposé, sinon « non » par défaut au premier lancement
