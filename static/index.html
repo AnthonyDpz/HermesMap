@@ -1051,7 +1051,7 @@ function wireFilters(){
   const st = dirState;
   $('#fq').value = st.q; $('#fsort').value = st.sort; $('#fsize').value = st.size;
   if ($('#fdeep')){ $('#fdeep').checked = st.deep; $('#fcontent').checked = st.content; }
-  if ($('#farch')){ $('#farch').checked = st.withArchive; $('#farch').onchange = () => { st.withArchive = $('#farch').checked; st.mediaLimit=120; runSearch(); }; }
+  if ($('#farch')){ $('#farch').checked = st.withArchive; $('#farch').onchange = () => { st.withArchive = $('#farch').checked; st.mediaLimit=120; st.deepItems = null; runSearch(); }; }
   document.querySelectorAll('.filters .mlink').forEach(a => a.onclick = () => { const p = a.dataset.open; byId.has(p) ? selectNode(p, true) : openPanel(p); });
   let t;
   const changed = () => { st.mediaLimit=120; st.listLimit=400; runSearch(); };
@@ -1093,6 +1093,31 @@ async function runSearch(){
   renderDirView();
 }
 
+// tout le contenu (fichiers) du dossier et de ses sous-dossiers, et de son archive miroir, chargé une fois
+async function loadDeep(st){
+  st.deepLoading = true;
+  const get = async p => {
+    for (let i = 0; i < 100; i++){
+      const r = await (await fetch(`/api/search?q=*&files=1&limit=5000&path=${encodeURIComponent(p || '')}`)).json();
+      if (!r.pending) return r;
+      if (dirState !== st) return null;
+      await sleep(1200);
+    }
+    return null;
+  };
+  try {
+    const r = await get(st.info.path);
+    let items = r ? (r.results || []) : [], trunc = !!(r && r.truncated);
+    if (st.info.mirror && st.withArchive){
+      const r2 = await get(st.info.mirror.path);
+      if (r2){ (r2.results || []).forEach(x => x.archive = true); items = items.concat(r2.results || []); trunc = trunc || !!r2.truncated; }
+    }
+    st.deepItems = items; st.deepTrunc = trunc;
+  } catch(e){ st.deepItems = []; }
+  st.deepLoading = false;
+  if (dirState === st) renderDirView();
+}
+
 function filteredChildren(){
   const st = dirState;
   const fromSearch = st.results != null;
@@ -1131,7 +1156,18 @@ function renderDirView(){
   const st = dirState; if (!st) return;
   const list = filteredChildren();
   renderCats();
-  const media = list.filter(c => catOf(c)==='image' || catOf(c)==='video');
+  // « Sous-dossiers inclus » sans texte de recherche : les galeries montrent aussi le contenu des sous-dossiers
+  const deepMode = st.results == null && st.deep && st.info.kind === 'dir';
+  if (deepMode && !st.deepItems && !st.deepLoading) loadDeep(st);
+  let gbase = list;
+  if (deepMode && st.deepItems){
+    const sorter = {name: (a,b) => a.name.localeCompare(b.name, 'fr', {numeric:true}), 'name-desc': (a,b) => b.name.localeCompare(a.name, 'fr', {numeric:true}),
+      size: (a,b) => (a.size||0)-(b.size||0), 'size-desc': (a,b) => (b.size||0)-(a.size||0), date: (a,b) => a.mtime-b.mtime, 'date-desc': (a,b) => b.mtime-a.mtime}[st.sort];
+    gbase = st.deepItems.filter(c => sizeOk(c, st.size) && (st.type==='all' || catOf(c)===st.type));
+    if (sorter) gbase = gbase.slice().sort(sorter);
+  }
+  const deepNote = deepMode && st.deepItems ? T(' · sous-dossiers compris') + (st.deepTrunc ? T(' · 5 000 premiers') : '') : (deepMode && st.deepLoading ? T(' · chargement des sous-dossiers…') : '');
+  const media = gbase.filter(c => catOf(c)==='image' || catOf(c)==='video');
   if (st.results != null){
     const r = st.resultsInfo || {};
     $('#fcount').textContent = `${list.length} résultat(s)`;
@@ -1142,13 +1178,13 @@ function renderDirView(){
     $('#fcount').textContent = `${list.length} / ${totalHere}` + (st.info.children_total > st.info.children.length ? ` (sur ${st.info.children_total})` : '');
     $('#fstatus') && ($('#fstatus').textContent = '');
   }
-  lbList = list.filter(isViewable);
+  lbList = gbase.filter(isViewable);
   // galerie
   let h = '';
   if (media.length && st.type !== 'dir'){
     const shown = media.slice(0, st.mediaLimit);
     const nAnim = media.filter(c => isAnimated(c) || catOf(c)==='video').length;
-    h += `<div class="section" style="display:flex;align-items:center;gap:8px">Médias (${media.length}) · survol d'une vidéo = aperçu, clic = plein écran${nAnim ? `<span style="flex:1"></span><button class="tbtn mini" id="animT" title="Faire jouer les GIF / WebP animés et les vidéos (sans le son) directement dans la galerie">${animOn ? '⏸ Animations : oui' : '▶ Animations : non'}</button>` : ''}</div><div class="gallery">` + shown.map(c => {
+    h += `<div class="section" style="display:flex;align-items:center;gap:8px">Médias (${media.length}${deepNote}) · survol d'une vidéo = aperçu, clic = plein écran${nAnim ? `<span style="flex:1"></span><button class="tbtn mini" id="animT" title="Faire jouer les GIF / WebP animés et les vidéos (sans le son) directement dans la galerie">${animOn ? '⏸ Animations : oui' : '▶ Animations : non'}</button>` : ''}</div><div class="gallery">` + shown.map(c => {
       const vid = catOf(c)==='video';
       const anim = animOn && isAnimated(c);
       const inner = c.cloud
@@ -1160,10 +1196,10 @@ function renderDirView(){
     if (media.length > shown.length) h += `<button class="tbtn more-btn" id="moreMedia">Afficher ${Math.min(120, media.length-shown.length)} de plus (${media.length-shown.length} restants)</button>`;
   }
   // galerie des documents (aperçu de la 1re page)
-  const docs = list.filter(c => catOf(c)==='doc');
+  const docs = gbase.filter(c => catOf(c)==='doc');
   if (docs.length && st.type !== 'dir'){
     const shownD = docs.slice(0, st.docLimit || 60);
-    h += `<div class="section">Documents (${docs.length}) · clic = lire ici, sans quitter le dossier</div><div class="gallery docs">` + shownD.map(c =>
+    h += `<div class="section">Documents (${docs.length}${deepNote}) · clic = lire ici, sans quitter le dossier</div><div class="gallery docs">` + shownD.map(c =>
       `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-doc="1" title="${esc((descText(c) ? descText(c) + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${c.cloud ? `<div class="ph">☁️</div>` : `<img class="thumb" data-src="${thumbUrl(c.path)}" data-raw="" alt="">`}<span class="badge ext">${esc(extOf(c))}</span>${c.archive ? '<span class="badge arch">🗄</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.title ? c.desc.title : c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`).join('') + '</div>';
     if (docs.length > shownD.length) h += `<button class="tbtn more-btn" id="moreDocs">Afficher ${Math.min(60, docs.length-shownD.length)} de plus (${docs.length-shownD.length} restants)</button>`;
   }

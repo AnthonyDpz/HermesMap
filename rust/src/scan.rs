@@ -107,7 +107,8 @@ pub fn extract_tags(txt: &str, is_md: bool) -> BTreeSet<String> {
 
 /// Mots significatifs d'un nom de fichier ou de dossier (pour les tags automatiques).
 pub fn name_tokens(name: &str) -> HashSet<String> {
-    let stem = if name.len() > 1 && name[1..].contains('.') { &name[..name.rfind('.').unwrap()] } else { name };
+    // (comme Python : un point après le 1er caractère ; le découpage se fait par caractères, pas par octets)
+    let stem = if name.chars().skip(1).any(|c| c == '.') { &name[..name.rfind('.').unwrap()] } else { name };
     let stem = Regex::new(r"([a-zà-ÿ])([A-Z])").unwrap().replace_all(stem, "$1 $2");
     let mut out = HashSet::new();
     for w in Regex::new(r"[^0-9A-Za-zÀ-ÿ]+").unwrap().split(&stem) {

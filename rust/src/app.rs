@@ -446,7 +446,7 @@ impl App {
                 }
                 "/api/search" => {
                     let lim: usize = qv("limit").parse().unwrap_or(1000);
-                    j(self.search(&qv("q"), &p, qv("content") == "1", lim.min(5000)))
+                    j(self.search(&qv("q"), &p, qv("content") == "1", lim.min(5000), qv("files") == "1"))
                 }
                 "/api/video" => {
                     let f = self.safe(&p)?;
@@ -677,21 +677,33 @@ impl App {
         json!({"ok": true, "made": made, "config": cfg.to_public()})
     }
 
-    fn search(&self, query: &str, scope: &str, content: bool, limit: usize) -> Value {
+    fn search(&self, query: &str, scope: &str, content: bool, limit: usize, files_only: bool) -> Value {
         let Some(sc) = self.scanner() else { return json!({"results": [], "total": 0}) };
         let data = sc.data.read().unwrap();
         let Some(idx) = data.index.as_ref() else {
             return json!({"pending": true, "status": self.status.lock().unwrap().clone()});
         };
-        let words: Vec<String> = norm_text(query).split_whitespace().map(String::from).collect();
-        if words.is_empty() {
-            return json!({"results": [], "total": 0});
-        }
         let mut scope = scope.trim_matches('/').to_string();
         if scope.starts_with("#tag:") {
             scope.clear();
         }
         let prefix = if scope.is_empty() { String::new() } else { format!("{}/", scope) };
+        if query.trim() == "*" {
+            // tout le contenu du dossier et de ses sous-dossiers (galeries « sous-dossiers compris »)
+            let mut all: Vec<&crate::scan::Entry> =
+                idx.iter().filter(|e| (prefix.is_empty() || e.rel.starts_with(&prefix)) && !(files_only && e.is_dir)).collect();
+            all.sort_by(|a, b| (a.rel.matches('/').count(), a.rel.to_lowercase()).cmp(&(b.rel.matches('/').count(), b.rel.to_lowercase())));
+            let total = all.len();
+            let out: Vec<Value> = all.iter().take(limit).map(|e| json!({"path": e.rel, "name": e.name,
+                "kind": if e.is_dir { "dir".into() } else { kind_of_name(&basename(&e.rel), false) }, "size": e.size, "mtime": e.mtime,
+                "cloud": e.cloud, "match": "tout", "where": dirname(&e.rel)})).collect();
+            let n = out.len();
+            return json!({"results": out, "total": total, "truncated": total > n});
+        }
+        let words: Vec<String> = norm_text(query).split_whitespace().map(String::from).collect();
+        if words.is_empty() {
+            return json!({"results": [], "total": 0});
+        }
         let mut res = vec![];
         let mut total = 0usize;
         for e in idx {

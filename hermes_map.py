@@ -1051,7 +1051,8 @@ def make_handler(app: App):
                 if u.path == "/api/search":
                     return self.send_json(self.search(q.get("q", [""])[0], path,
                                                       q.get("content", ["0"])[0] == "1",
-                                                      min(5000, int(q.get("limit", ["1000"])[0]))))
+                                                      min(5000, int(q.get("limit", ["1000"])[0])),
+                                                      q.get("files", ["0"])[0] == "1"))
                 if u.path == "/api/video":
                     p = app.safe(path)
                     st_ = app.video.status(p)
@@ -1081,20 +1082,27 @@ def make_handler(app: App):
             except Exception as e:  # noqa
                 self.send_json({"error": str(e)}, 500)
 
-        def search(self, query, scope, content, limit):
+        def search(self, query, scope, content, limit, files_only=False):
             """Recherche dans TOUT l'arbre (pas seulement ce qui est affiché sur la carte).
             Un élément correspond si tous les mots sont dans son chemin : chercher « jardin »
             trouve le dossier « Jardin… » ET tout ce qu'il contient."""
             idx = app.scanner.index
             if idx is None:
                 return {"pending": True, "status": app.status}
-            words = [w for w in norm_text(query).split() if w]
-            if not words:
-                return {"results": [], "total": 0}
             scope = scope.strip("/")
             if scope.startswith("#tag:"):
                 scope = ""
             prefix = scope + "/" if scope else ""
+            if query.strip() == "*":
+                # tout le contenu du dossier et de ses sous-dossiers (galeries « sous-dossiers compris »)
+                allr = [r for r in idx if (not prefix or r[0].startswith(prefix)) and not (files_only and r[2])]
+                allr.sort(key=lambda r: (r[0].count("/"), r[0].lower()))
+                out = [{"path": r[0], "name": r[1], "kind": "dir" if r[2] else kind_of(Path(r[0])), "size": r[3],
+                        "mtime": r[4], "cloud": r[5], "match": "tout", "where": posixpath.dirname(r[0])} for r in allr[:limit]]
+                return {"results": out, "total": len(allr), "truncated": len(allr) > len(out)}
+            words = [w for w in norm_text(query).split() if w]
+            if not words:
+                return {"results": [], "total": 0}
             plen = len(prefix)
             res = []
             total = 0

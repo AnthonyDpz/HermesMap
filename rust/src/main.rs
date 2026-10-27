@@ -127,6 +127,10 @@ fn kill(pid: u32) {
 }
 
 fn main() {
+    // une erreur interne est notée au journal (avec l'endroit du code) au lieu de passer inaperçue
+    std::panic::set_hook(Box::new(|info| {
+        logfile::line(&format!("ERREUR interne : {}", info));
+    }));
     let args = parse_args();
     if args.idle_exit > 0 && args.port_file.is_some() {
         // lancée comme une app (double-clic) : on garde une trace de ce qui se passe
