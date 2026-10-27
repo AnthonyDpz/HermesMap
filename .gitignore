@@ -9,3 +9,7 @@ config.json
 config.default.json
 *.local.json
 mes-reglages*.json
+
+# Rust
+rust/target/
+rust/build.log

@@ -1,0 +1,88 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: hermes-map-linux-x86_64.tar.gz
+          - os: windows-latest
+            asset: hermes-map-windows-x86_64.zip
+          - os: macos-latest
+            asset: hermes-map-macos.zip
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust (Mac : Apple Silicon + Intel)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Compile
+        run: |
+          set -o pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cargo build --release --target aarch64-apple-darwin 2>&1 | tee build.log
+            cargo build --release --target x86_64-apple-darwin 2>&1 | tee -a build.log
+          else
+            cargo build --release 2>&1 | tee build.log
+          fi
+
+      - name: Show compile errors
+        if: failure()
+        run: |
+          msg=$(grep -E "^error" -A 14 build.log | head -200 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+          echo "::error title=cargo build::${msg}"
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist/hermes-map && cp target/release/hermes-map dist/hermes-map/ && cp ../README.md ../LICENSE ../THIRD_PARTY_NOTICES.md dist/hermes-map/
+          tar -C dist -czf "../${{ matrix.asset }}" hermes-map
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir -p dist/HermesMap && cp target/release/hermes-map.exe "dist/HermesMap/Hermes Map.exe" && cp ../README.md ../LICENSE ../THIRD_PARTY_NOTICES.md dist/HermesMap/
+          cd dist && 7z a "../../${{ matrix.asset }}" HermesMap
+
+      - name: Package (Mac)
+        if: runner.os == 'macOS'
+        run: |
+          APP="dist/Hermes Map.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          lipo -create -output "$APP/Contents/MacOS/hermes-map" target/aarch64-apple-darwin/release/hermes-map target/x86_64-apple-darwin/release/hermes-map
+          VER=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          sed -e "s/<string>HermesMap<\/string>/<string>hermes-map<\/string>/" -e "s/2026\.10\.26/$VER/g" ../macos/Info.plist > "$APP/Contents/Info.plist"
+          printf 'APPL????' > "$APP/Contents/PkgInfo"
+          cp ../macos/AppIcon.icns "$APP/Contents/Resources/"
+          codesign --force --deep --sign - "$APP"
+          cd dist && ditto -c -k --keepParent "Hermes Map.app" "../../${{ matrix.asset }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+      - name: Publish release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}
+          draft: false
+          prerelease: true
