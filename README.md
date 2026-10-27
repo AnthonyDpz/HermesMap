@@ -42,6 +42,10 @@ Python 3.8+ only, no dependencies. Thumbnails and Office previews use macOS tool
 
 The server listens on `127.0.0.1` only, write actions require a per-launch token, and nothing is sent to the internet. Browsing is read-only; files are only changed by the actions you start (Hermes update, reclassify, move), always after a backup and with undo. Settings live in `~/Library/Application Support/hermes-map/config.json`.
 
+## Support
+
+Hermes Map is free and open source. If it is useful to you, you can [sponsor the project on GitHub](https://github.com/sponsors/AnthonyDpz) ☕
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Bundled libraries: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

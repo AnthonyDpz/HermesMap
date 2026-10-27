@@ -124,6 +124,10 @@ python3 hermes_map.py --no-hermes
 - L'exploration est en lecture seule. Seules trois actions écrivent, toujours à ta demande, après sauvegarde et avec annulation possible : **Mettre à jour avec Hermes**, **Reclasser avec Hermes** et **Déplacer / renommer**. Activer l'archivage crée le dossier d'archivage s'il n'existe pas.
 - Les miniatures et vidéos converties sont en cache dans `~/Library/Caches/hermes-map` ; tu peux supprimer ce dossier à tout moment.
 
+## Soutenir le projet
+
+Hermes Map est gratuit et open source. S'il t'est utile, tu peux [soutenir le projet sur GitHub Sponsors](https://github.com/sponsors/AnthonyDpz) ☕ (lien aussi dans l'écran ⚙ Réglages). L'app reste entièrement utilisable sans soutien.
+
 ## Licence
 
 MIT (voir `LICENSE`). Bibliothèques incluses : voir `THIRD_PARTY_NOTICES.md`.
