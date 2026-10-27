@@ -1197,6 +1197,12 @@ def make_handler(app: App):
                         return self.send_json(mv.undo(body.get("id", "")))
                     return self.send_json(mv.run(body.get("items", []), body.get("create_dirs", True),
                                                  body.get("update_index", True), body.get("note", "")))
+                if u.path == "/api/clientlog":
+                    n = int(self.headers.get("Content-Length") or 0)
+                    body = json.loads(self.rfile.read(n) or b"{}") if n else {}
+                    print(time.strftime("%Y-%m-%d %H:%M:%S"), f": page : {body.get('what')} non chargé(e) après {body.get('tries')} essais : "
+                          f"{body.get('path')}", flush=True)
+                    return self.send_json({"ok": True})
                 if u.path == "/api/lang":
                     n = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(n) or b"{}") if n else {}

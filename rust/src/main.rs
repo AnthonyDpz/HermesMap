@@ -11,6 +11,7 @@ mod assets;
 mod config;
 mod hermes;
 mod i18n;
+mod logfile;
 #[cfg(target_os = "macos")]
 mod macos;
 mod media;
@@ -127,6 +128,12 @@ fn kill(pid: u32) {
 
 fn main() {
     let args = parse_args();
+    if args.idle_exit > 0 && args.port_file.is_some() {
+        // lancée comme une app (double-clic) : on garde une trace de ce qui se passe
+        logfile::redirect_output();
+        println!();
+        logfile::line(&format!("===== démarrage de Hermes Map {} (moteur Rust)", app::VERSION));
+    }
 
     // déjà lancé : on rouvre la page (sauf si c'est une version plus ancienne que ce programme)
     if let Some(pf) = &args.port_file {
