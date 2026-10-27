@@ -2,7 +2,19 @@
 
 Explorateur visuel de tes dossiers de notes : une carte mentale (mind map) des dossiers, des fichiers et des liens entre eux, avec un panneau de lecture à droite. Fait pour accompagner l'agent **Hermes** (commande `hermes`), mais fonctionne aussi sans lui, sur n'importe quel dossier de notes (Markdown, coffre Obsidian, iCloud Drive…).
 
-## Installer et lancer
+## Télécharger (Mac, Windows, Linux)
+
+Des versions prêtes à l'emploi sont jointes à chaque version publiée sur la [page Releases](https://github.com/AnthonyDpz/HermesMap/releases). Elles sont construites automatiquement par GitHub à partir de la version Rust (dossier `rust/`), qui a la même interface et les mêmes fonctions.
+
+- **Mac** (Apple Silicon et Intel) : `hermes-map-macos.zip`. Décompresse, range **Hermes Map.app** dans Applications, puis clic droit → **Ouvrir** au premier lancement (l'app n'est pas notariée par Apple). Pour lire iCloud Drive, autorise-la dans **Accès complet au disque**.
+- **Windows 10 / 11** : `hermes-map-windows-x86_64.zip`. Décompresse et double-clique sur **Hermes Map.exe**. Si SmartScreen affiche un avertissement : **Informations complémentaires → Exécuter quand même** (l'app n'est pas signée).
+- **Linux** (x86_64) : `hermes-map-linux-x86_64.tar.gz`, puis `./hermes-map`.
+
+La carte s'ouvre dans le navigateur. Relancer l'app pendant qu'elle tourne rouvre la page ; elle s'arrête toute seule deux minutes après la fermeture du dernier onglet.
+
+Sur Windows, les miniatures des PDF et documents Office ne sont pas encore générées (une icône s'affiche à la place), et les documents Word sont affichés en texte simple.
+
+## Installer et lancer depuis les sources
 
 **Sur Mac (recommandé) : construire l'app.** Il faut les outils de développement d'Apple (ils fournissent aussi Python 3) :
 
