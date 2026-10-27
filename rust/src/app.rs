@@ -370,7 +370,12 @@ impl App {
                     headers.push(h("Content-Range", &format!("bytes {}-{}/{}", start, end, size)));
                 }
                 let r = Response::new(StatusCode(code), headers, f.take(len), Some(len as usize), None);
-                let _ = req.respond(r);
+                let url = req.url().to_string();
+                let t0 = std::time::Instant::now();
+                if let Err(e) = req.respond(r) {
+                    // envoi interrompu (page fermée, connexion coupée, lecture iCloud en échec…)
+                    crate::logfile::line(&format!("envoi interrompu après {:.1} s ({} octets prévus) : {} — {}", t0.elapsed().as_secs_f64(), len, crate::util::unquote(&url), e));
+                }
             }
         }
     }
@@ -529,6 +534,16 @@ impl App {
                     i18n::set_lang(&lg);
                     let _ = config::save_language(&lg);
                     j(json!({"ok": true, "lang": lg}))
+                }
+                "/api/clientlog" => {
+                    // la page signale un problème (ex. image impossible à charger) : on le note au journal
+                    let what = s("what");
+                    let p = s("path");
+                    let ok = self.safe(&p).ok();
+                    let info = ok.as_ref().and_then(|f| fs::metadata(f).ok()).map(|m| format!("{} octets, iCloud non téléchargé : {}", m.len(), is_dataless(&m)))
+                        .unwrap_or_else(|| "introuvable".into());
+                    crate::logfile::line(&format!("page : {} non chargé(e) après {} essais : {} ({})", what, b.get("tries").and_then(|v| v.as_u64()).unwrap_or(0), p, info));
+                    j(json!({"ok": true}))
                 }
                 "/api/setup/choose" => {
                     let pr = s("prompt");

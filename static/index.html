@@ -1228,14 +1228,25 @@ function wireDirView(){
   tileObserver = new IntersectionObserver(entries => entries.forEach(en => {
     if (!en.isIntersecting) return;
     const img = en.target; tileObserver.unobserve(img);
+    // échec de chargement (iCloud lent, connexion coupée…) : on réessaie, puis on se rabat sur une
+    // miniature fixe, puis sur une icône — jamais une case noire
+    let tries = 0;
+    const tryLoad = (url, why) => { img.src = url + (url.includes('?') ? '&' : '?') + 'r=' + Date.now(); };
     img.onerror = () => {
-      img.onerror = null;
+      tries++;
       if (img.closest('figure[data-doc]')){ const ph = document.createElement('div'); ph.className = 'ph doc'; ph.textContent = '📄'; img.replaceWith(ph); return; }
       if (img.dataset.vid){ // pas de miniature système : première image de la vidéo
+        img.onerror = null;
         const v = document.createElement('video');
         v.className='thumb'; v.muted=true; v.preload='metadata'; v.src = img.dataset.raw + '#t=0.5';
-        img.replaceWith(v);
-      } else img.src = img.dataset.raw;
+        img.replaceWith(v); return;
+      }
+      const p = img.closest('figure') && img.closest('figure').dataset.p;
+      if (tries <= 2){ setTimeout(() => tryLoad(tries === 1 ? img.dataset.src : img.dataset.raw), 700 * tries); return; }
+      if (tries === 3 && img.dataset.src !== thumbUrl(p)){ tryLoad(thumbUrl(p)); return; }
+      img.onerror = null;
+      try { hpost('/api/clientlog', {what: 'image', path: p, tries}); } catch(e){}
+      const ph = document.createElement('div'); ph.className = 'ph'; ph.textContent = '🖼️'; ph.title = T('Image non chargée : clic pour l\'ouvrir'); img.replaceWith(ph);
     };
     img.src = img.dataset.src;
   }), {root: $('#pbody'), rootMargin: '300px'});
