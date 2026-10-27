@@ -23,6 +23,8 @@ DEFAULTS = {
     "version": 1,
     "root": None,              # dossier exploré
     "include": "*",            # dossiers de 1er niveau affichés (motifs séparés par des virgules)
+    "folders": [],             # liste explicite des dossiers de notes affichés (vide = tous, selon « include »)
+    "hidden_tops": [],         # dossiers de 1er niveau masqués (les nouveaux dossiers restent visibles)
     "title": "",               # nom du nœud central (défaut : nom du dossier)
     "zone_prefix": "",         # préfixe retiré du nom des zones (ex. « N_ » : N_Pro -> Pro)
     "ignore": [],              # dossiers ignorés en plus (bacs de tri, sauvegardes…)
@@ -87,6 +89,13 @@ class Settings:
         return top[len(p):] if p and top.startswith(p) else top
 
     def top_allowed(self, name: str) -> bool:
+        if self.archive and name == self.archive:
+            return True                       # le dossier d'archivage est toujours suivi
+        folders = self.data.get("folders") or []
+        if folders:
+            return name in folders
+        if name in (self.data.get("hidden_tops") or []):
+            return False
         inc = self.include
         return not inc or any(fnmatch.fnmatch(name, pat) for pat in inc)
 
@@ -180,6 +189,7 @@ def inspect(path: str):
         if len(members) < 3 or len(members) < 0.15 * len(names) and len(names) > 20:
             prefix, members = "", []
     shown = members or names
+    out["all"] = names[:500]
     out["tops"] = shown[:24]
     out["more"] = max(0, len(shown) - 24)
     out["suggest"] = {"include": f"{prefix}*" if prefix else "*", "zone_prefix": prefix}

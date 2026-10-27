@@ -13,7 +13,7 @@ A visual explorer for your notes folders: a mind map of folders, files and the l
 - **Tags**: front-matter `tags:` and `#hashtags`, plus automatic tags from words that recur across branches.
 - **Search everything**, including folders the map does not draw, and optionally inside file contents.
 - **Reading panel**: rendered Markdown, image / GIF / video galleries, PDF and Office previews, SQLite tables, chat logs; secrets (`.env`, `auth.json`) are masked.
-- **Optional archive folder**: keep notes in their folders and binaries in a mirrored archive tree (`Notes/trips/japan.md` ↔ `Archive/notes/trips/`); the map shows both together.
+- **Optional storage folder**: keep notes in the folders you pick and binaries in a mirrored storage tree (`Personal/trips/japan.md` ↔ `Storage/personal/trips/`); the map shows both together.
 - **Move / rename** files by hand, with catalogue, log and note links updated — and undo.
 - **With Hermes installed**: “Update with Hermes” (links, tags, INDEX.md from where you are) and “Reclassify with Hermes” (analyse, rename, file away), with live activity on the map, a backup before every run, a full diff and one-click undo.
 
@@ -28,7 +28,7 @@ cd HermesMap
 ./macos/build_app.sh --install
 ```
 
-Then launch **Hermes Map** from Spotlight. The first launch shows a setup screen: it detects Hermes and suggests folders to explore (iCloud Drive, Obsidian vaults, `~/.hermes`, Documents), and asks whether to centralise files in an archive folder. To read protected folders such as iCloud Drive, grant the app **Full Disk Access** when prompted.
+Then launch **Hermes Map** from Spotlight. The first launch shows a setup screen: it detects Hermes, suggests where your notes are (iCloud Drive, Obsidian vaults, `~/.hermes`, Documents), lets you tick the folders that hold your notes, and asks whether to centralise files in a mirrored storage folder. To read protected folders such as iCloud Drive, grant the app **Full Disk Access** when prompted.
 
 ## Run from source (macOS / Linux)
 
