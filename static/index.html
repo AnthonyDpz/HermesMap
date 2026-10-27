@@ -388,6 +388,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 <script src="/static/vendor/3d-force-graph.min.js"></script>
 <script src="/static/vendor/marked.umd.js"></script>
 <script src="/static/vendor/purify.min.js"></script>
+<script type="application/json" id="hm-i18n">__HM_I18N__</script>
 <script>
 // ---------------- langue de l'interface (FR / EN) ----------------
 // Le texte est écrit en français dans le code ; en anglais, il est traduit à l'affichage
@@ -397,7 +398,9 @@ window.HM_LANG = (() => {
   if (saved === 'fr' || saved === 'en') return saved;
   return /^fr\b/i.test(navigator.language || '') ? 'fr' : 'en';
 })();
-window.HM_I18N = __HM_I18N__;
+// dictionnaire injecté par le serveur ; absent si un ancien serveur sert cette page (après une mise à jour)
+window.HM_STALE = false;
+window.HM_I18N = (() => { try { return JSON.parse(document.getElementById('hm-i18n').textContent); } catch(e){ window.HM_STALE = true; return {}; } })();
 (() => {
   const D = window.HM_I18N || {}, EN = window.HM_LANG === 'en';
   const EXACT = new Map(Object.entries(D.exact || {}));
@@ -2175,6 +2178,16 @@ $('#tLang').classList.add(HM_LANG);
 $('#tLang').onclick = () => setLang(HM_LANG === 'en' ? 'fr' : 'en');
 if ('__HM_LANG__' !== 'fr' && '__HM_LANG__' !== 'en') hpost('/api/lang', {lang: HM_LANG}).catch(() => {});
 
+// page plus récente que le serveur en cours : l'app a été mise à jour pendant qu'elle tournait
+if (window.HM_STALE){
+  const fr = HM_LANG !== 'en';
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:60;background:#2a1a1a;border:1px solid #5a2a2a;color:#e6e8ee;padding:12px 16px;border-radius:10px;font:14px var(--sans);max-width:90vw';
+  d.setAttribute('data-noi18n', '');
+  d.textContent = fr ? 'Hermes Map a été mis à jour pendant qu\'il tournait : clique sur ⏻ (deux fois), puis relance l\'app.'
+                     : 'Hermes Map was updated while running: click ⏻ (twice), then launch the app again.';
+  document.body.appendChild(d);
+}
 load();
 // battement de cœur : tant qu'une page est ouverte, l'app reste allumée (elle s'éteint seule ensuite)
 setInterval(() => fetch('/api/ping').catch(()=>{}), 20000); fetch('/api/ping').catch(()=>{});
