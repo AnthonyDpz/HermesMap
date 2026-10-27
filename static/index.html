@@ -279,6 +279,13 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 #tip small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px;margin-top:2px}
 #loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}
 
+/* ---- interrupteur de langue FR / EN ---- */
+.langsw{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;align-items:center;height:28px;padding:2px;border:1px solid var(--line);border-radius:20px;background:var(--bg3);cursor:pointer;font:600 11px var(--sans);color:var(--muted);flex:none}
+.langsw span{position:relative;z-index:1;padding:0 9px;line-height:22px;text-align:center;transition:color .2s}
+.langsw::before{content:"";position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:16px;background:var(--accent);transition:transform .22s ease}
+.langsw.en::before{transform:translateX(100%)}
+.langsw.fr span[data-l=fr],.langsw.en span[data-l=en]{color:#1b1206}
+#setup .langsw{position:absolute;top:0;right:0}
 /* ---- écran d'accueil / réglages ---- */
 #setup{position:fixed;inset:0;z-index:50;background:radial-gradient(1200px 600px at 20% 0%,#1b2030 0%,var(--bg) 60%);overflow:auto;display:flex;justify-content:center;padding:48px 16px}
 #setup .card{width:min(760px,100%);display:flex;flex-direction:column;gap:18px}
@@ -340,6 +347,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
     <button class="tbtn" id="tFit" title="Tout voir">⤢ Recentrer</button>
     <button class="tbtn" id="tReload" title="Relire le dossier">↻</button>
     <button class="tbtn" id="tFull" title="Plein écran (F)">⛶ Plein écran</button>
+    <button class="langsw" id="tLang" title="Langue de l'interface / Interface language" data-noi18n><span data-l="fr">FR</span><span data-l="en">EN</span></button>
     <button class="tbtn" id="tSettings" title="Réglages : dossier exploré, archive, Hermes">⚙</button>
     <button class="tbtn" id="tQuit" title="Arrêter Hermes Map (sinon il s'arrête tout seul 2 minutes après la fermeture de la page)">⏻</button>
   </header>
@@ -381,6 +389,77 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 <script src="/static/vendor/marked.umd.js"></script>
 <script src="/static/vendor/purify.min.js"></script>
 <script>
+// ---------------- langue de l'interface (FR / EN) ----------------
+// Le texte est écrit en français dans le code ; en anglais, il est traduit à l'affichage
+// grâce au dictionnaire static/i18n/en.json (injecté par le serveur).
+window.HM_LANG = (() => {
+  const saved = '__HM_LANG__';
+  if (saved === 'fr' || saved === 'en') return saved;
+  return /^fr\b/i.test(navigator.language || '') ? 'fr' : 'en';
+})();
+window.HM_I18N = __HM_I18N__;
+(() => {
+  const D = window.HM_I18N || {}, EN = window.HM_LANG === 'en';
+  const EXACT = new Map(Object.entries(D.exact || {}));
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // les clés les plus longues d'abord : « Durée : {0} · sauvegarde : » avant « Durée : {0} »
+  const PATS = Object.entries(D.patterns || {}).sort((a, b) => b[0].length - a[0].length).map(([fr, en]) => {
+    const re = '^' + esc(fr).replace(/\\\{(\d+)(#?)\\\}/g, (_, n, num) => num ? `(?<g${n}>\\d[\\d\\s., ]*)` : `(?<g${n}>[\\s\\S]*?)`) + '$';
+    return [new RegExp(re), en, fr];
+  });
+  const BYKEY = new Map(Object.entries(D.patterns || {}));
+  const core = s => {
+    if (EXACT.has(s)) return EXACT.get(s);
+    for (const [re, en] of PATS){
+      const m = s.match(re);
+      if (m) return en.replace(/\{(\d+)\}/g, (_, n) => { const v = m.groups['g' + n] || ''; return EXACT.has(v) ? EXACT.get(v) : v; });
+    }
+    // ponctuation finale ajoutée par le code (« … . » / « … : »)
+    const p = s.match(/^([\s\S]*?)([.:;,!?]+)$/);
+    if (p && p[1] && (EXACT.has(p[1]) || PATS.some(([re]) => re.test(p[1])))) return core(p[1]) + p[2];
+    return null;
+  };
+  const trText = s => {
+    if (!EN || !s || !/[A-Za-zÀ-ÿ]/.test(s)) return s;
+    const m = s.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    const c = m[2].replace(/\s+/g, ' ');
+    const r = core(c);
+    return r == null ? s : m[1] + r + m[3];
+  };
+  // T('Texte {0}', valeur) : pour les phrases construites dans le code
+  window.T = (fr, ...args) => {
+    let out = fr;
+    if (EN){ if (EXACT.has(fr)) out = EXACT.get(fr); else if (BYKEY.has(fr)) out = BYKEY.get(fr); }
+    return out.replace(/\{(\d+)#?\}/g, (_, n) => { const v = args[+n]; return v == null ? '' : (EN && EXACT.has(String(v)) ? EXACT.get(String(v)) : String(v)); });
+  };
+  window.trText = trText;
+  if (!EN) return;
+  // noms de fichiers, notes, chemins, tags : jamais traduits
+  const SKIP = '.md, pre, code, textarea, script, style, .nm, .where, .snip, .crumbs, .tagchip, .lbl, #labels3d, .wl, .chat, .docpaper, .dbtable td, .mvcol span, .fm td, [data-noi18n]';
+  const ATTRS = ['title', 'placeholder', 'aria-label'];
+  const trEl = el => { for (const a of ATTRS){ const v = el.getAttribute && el.getAttribute(a); if (v){ const t = trText(v); if (t !== v) el.setAttribute(a, t); } } };
+  const walk = root => {
+    if (root.nodeType === 3){ const p = root.parentElement; if (p && !p.closest(SKIP)){ const t = trText(root.data); if (t !== root.data) root.data = t; } return; }
+    if (root.nodeType !== 1 || root.closest(SKIP)) return;
+    trEl(root);
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {acceptNode: n => (n.nodeType === 1 && n.matches(SKIP)) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+    let n; while ((n = w.nextNode())){
+      if (n.nodeType === 3){ const t = trText(n.data); if (t !== n.data) n.data = t; } else trEl(n);
+    }
+  };
+  const start = () => {
+    walk(document.body);
+    new MutationObserver(ms => { for (const m of ms){
+      if (m.type === 'childList') m.addedNodes.forEach(walk);
+      else if (m.type === 'characterData') walk(m.target);
+      else if (m.type === 'attributes' && !m.target.closest(SKIP)) trEl(m.target);
+    } }).observe(document.body, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS});
+    document.documentElement.lang = 'en';
+  };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+</script>
+<script>
 (() => {
 const $ = s => document.querySelector(s);
 const ICONS = {root:'☤',dir:'📁',markdown:'📝',json:'🧾',config:'⚙️',text:'📄',image:'🖼️',pdf:'📕',audio:'🎵',video:'🎬',db:'🗄️',secret:'🔐',icloud:'☁️',tag:'🏷️',office:'📑',binary:'📦',more:'…',skill:'🧩'};
@@ -404,7 +483,7 @@ const ACT = {read:{c:'#7cc4ff', ttl:6, label:'lit', icon:'👁'}, write:{c:'#f5b
 let activity = new Map(), liveOn = false, liveFeed = [], followCam = true, lastFollow = 0, liveTimer = null;
 
 const fmtSize = n => n==null ? '' : n<1024 ? n+' o' : n<1048576 ? (n/1024).toFixed(1)+' Ko' : (n/1048576).toFixed(1)+' Mo';
-const fmtDate = t => t ? new Date(t*1000).toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'}) : '';
+const fmtDate = t => t ? new Date(t*1000).toLocaleString(HM_LANG === 'en' ? 'en-GB' : 'fr-FR',{dateStyle:'medium',timeStyle:'short'}) : '';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iconFor = n => n.skill ? ICONS.skill : (ICONS[n.kind] || '📄');
 const raw = p => '/api/raw?path=' + encodeURIComponent(p);
@@ -412,7 +491,7 @@ const idOf = x => typeof x==='object' && x ? x.id : x;
 const lkey = l => idOf(l.source) + '>' + idOf(l.target);
 let CFG = {zone_prefix:'', archive_dir:null, hermes:{}};
 const stripPrefix = t => { const p = CFG.zone_prefix || ''; return p && String(t).startsWith(p) ? String(t).slice(p.length) : String(t); };
-const zoneName = g => GROUP_LABELS[g] || stripPrefix(g);
+const zoneName = g => GROUP_LABELS[g] ? T(GROUP_LABELS[g]) : stripPrefix(g);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const normTxt = t => String(t||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
@@ -736,7 +815,7 @@ function zoneTagsHtml(groups, counts, tq){
 function tagGroup(title, list, limit){
   if (!list.length) return '';
   return `<div class="tgtitle">${title}</div><div class="tagcloud">` + list.slice(0, limit).map(t =>
-    `<span class="tagchip ${t.auto?'auto':''} ${selected===t.id?'on':''}" data-id="${esc(t.id)}" title="${t.auto ? 'Présent dans ' + esc((t.zones||[]).map(zoneName).join(', ')) : 'Tag écrit dans tes notes'}">${esc(t.name)}<small>${t.count}</small></span>`).join('') + '</div>';
+    `<span class="tagchip ${t.auto?'auto':''} ${selected===t.id?'on':''}" data-id="${esc(t.id)}" title="${t.auto ? T('Présent dans {0}', esc((t.zones||[]).map(zoneName).join(', '))) : 'Tag écrit dans tes notes'}">${esc(t.name)}<small>${t.count}</small></span>`).join('') + '</div>';
 }
 function buildLegend(){
   const counts = {};
@@ -854,8 +933,8 @@ async function openPanel(path, opts={}){
   const chips = [];
   chips.push(kindLabel(info.kind, node.skill));
   if (info.kind!=='dir' && info.kind!=='tag') chips.push(fmtSize(info.size));
-  if (info.children_total!=null) chips.push(info.children_total + ' éléments' + (info.mirror ? ` · ${info.mirror.total} dans l'archive` : ''));
-  if (info.mtime) chips.push('modifié ' + fmtDate(info.mtime));
+  if (info.children_total!=null) chips.push(T('{0} éléments', info.children_total) + (info.mirror ? ' · ' + T("{0} dans l'archive", info.mirror.total) : ''));
+  if (info.mtime) chips.push(T('modifié {0}', fmtDate(info.mtime)));
   $('#pmeta').innerHTML = chips.map(c=>`<span class="chip">${esc(c)}</span>`).join('') + (info.cloud?'<span class="chip warn">☁️ dans iCloud, téléchargement à l\'ouverture</span>':'') + (info.masked?'<span class="chip warn">🔐 valeurs masquées</span>':'') + (info.truncated?'<span class="chip warn">tronqué à 2 Mo</span>':'');
   const zone = node.group && node.group!=='root' && node.group!=='#tags' ? node.group : null;
   if (node.kind==='tag' && node.auto){
@@ -1236,7 +1315,7 @@ function msgText(c){
   return String(c ?? '');
 }
 function renderChat(msgs){
-  return '<div class="section">Conversation ('+msgs.length+' messages)</div><div class="chat">' + msgs.map(m => {
+  return '<div class="section">' + T('Conversation ({0} messages)', msgs.length) + '</div><div class="chat">' + msgs.map(m => {
     const role = (m.role||'?').toLowerCase();
     let txt = msgText(m.content);
     if (!txt && m.tool_calls) txt = '```json\n' + JSON.stringify(m.tool_calls, null, 2) + '\n```';
@@ -1349,7 +1428,7 @@ async function openHermes(){
   }
   const t = info.target;
   if (!t || !t.ok){ $('#hbody').innerHTML = `<div class="warn">${esc(t ? t.why : 'Ouvre un dossier ou une note.')}</div>`; $('#hfoot').innerHTML=`<span class="sp"></span><button class="tbtn" onclick="document.getElementById('hmodal').style.display='none'">Fermer</button>`; return; }
-  const key = 'hm-prompt-' + t.kind;
+  const key = 'hm-prompt-' + t.kind + (HM_LANG === 'en' ? '-en' : '');
   const def = t.kind==='dir' ? info.prompt_dir : info.prompt_file;
   let tpl = def; try { tpl = localStorage.getItem(key) || def; } catch(e){}
   const fill = x => x.replaceAll('{nom}', t.name).replaceAll('{chemin}', t.abs).replaceAll('{dossier}', t.parent || '/');
@@ -1424,7 +1503,7 @@ async function hPoll(){
     if (atBottom) log.scrollTop = log.scrollHeight;
   }
   const st = $('#hstate'); st.style.display=''; st.className = 'hstate ' + r.state; st.textContent = hstateLabel(r.state);
-  const el = $('#htime'); if (el) el.textContent = 'Durée : ' + fmtDur(((r.ended || Date.now()/1000) - r.started));
+  const el = $('#htime'); if (el) el.textContent = T('Durée : {0}', fmtDur(((r.ended || Date.now()/1000) - r.started)));
   if (['preparing','running'].includes(r.state)){ hpoll = setTimeout(hPoll, 1000); return; }
   // terminé
   $('#phermes').classList.remove('busy');
@@ -1674,7 +1753,7 @@ async function openReclassDialog(items){
   let prof = rp; try { prof = localStorage.getItem('hm-profile-reclass') || rp; } catch(e){}
   if (!profiles.includes(prof)) prof = rp;
   const def = info.prompt_reclass;
-  let tpl = def; try { tpl = localStorage.getItem('hm-prompt-reclass') || def; } catch(e){}
+  let tpl = def; try { tpl = localStorage.getItem('hm-prompt-reclass' + (HM_LANG === 'en' ? '-en' : '')) || def; } catch(e){}
   const list = items.map(c => `- ${data.root}/${c.path}${descText(c) ? '   (fiche actuelle : ' + descText(c).slice(0, 160) + ')' : ''}`).join('\n');
   const fill = x => x.replaceAll('{racine}', data.root).replaceAll('{nb}', String(items.length)).replaceAll('{fichiers}', list);
   $('#hbody').innerHTML = `
@@ -1689,11 +1768,11 @@ async function openReclassDialog(items){
   $('#hprompt').value = tpl;
   $('#hfoot').innerHTML = `<button class="tbtn" id="hreset">Consigne par défaut</button><span class="sp"></span><span class="note">Commande : <code>${esc(info.hermes)} -p <span id="hpshow">${esc(prof)}</span> chat --query-file -</code></span><button class="tbtn" id="hcancel">Annuler</button><button class="tbtn primary" id="hgo">☤ Lancer le reclassement</button>`;
   $('#hprof').onchange = () => { $('#hpshow').textContent = $('#hprof').value; };
-  $('#hreset').onclick = () => { $('#hprompt').value = def; try { localStorage.removeItem('hm-prompt-reclass'); } catch(e){} };
+  $('#hreset').onclick = () => { $('#hprompt').value = def; try { localStorage.removeItem('hm-prompt-reclass' + (HM_LANG === 'en' ? '-en' : '')); } catch(e){} };
   $('#hcancel').onclick = hhide;
   $('#hgo').onclick = async () => {
     const tplNow = $('#hprompt').value, pr = $('#hprof').value;
-    try { tplNow !== def ? localStorage.setItem('hm-prompt-reclass', tplNow) : localStorage.removeItem('hm-prompt-reclass'); localStorage.setItem('hm-profile-reclass', pr); } catch(e){}
+    try { tplNow !== def ? localStorage.setItem('hm-prompt-reclass' + (HM_LANG === 'en' ? '-en' : ''), tplNow) : localStorage.removeItem('hm-prompt-reclass' + (HM_LANG === 'en' ? '-en' : '')); localStorage.setItem('hm-profile-reclass', pr); } catch(e){}
     $('#hgo').disabled = true;
     const r = await hpost('/api/hermes/run', {mode: 'reclass', files: items.map(c => c.path), prompt: fill(tplNow), profile: pr === 'default' ? '' : pr});
     if (r.error){ $('#hgo').disabled = false; alertBox(r.error); return; }
@@ -1732,7 +1811,7 @@ async function playVideo(el, c, opts={}){
       return;
     }
     if (st.state === 'no-ffmpeg') return fail(`Ce format (${extOf(c)}) n'est pas lu par les navigateurs.<br><small>Pour le lire ici, installe ffmpeg une fois (Terminal : <code>brew install ffmpeg</code>), puis relance Hermes Map.</small>`);
-    if (st.state === 'error') return fail('Conversion impossible : ' + esc(st.error || ''));
+    if (st.state === 'error') return fail(T('Conversion impossible : {0}', esc(st.error || '')));
     el.innerHTML = `<div class="ph">⏳ Conversion de la vidéo pour le navigateur… ${Math.round((st.progress||0)*100)} %<br><small>(une seule fois : elle est gardée en cache)</small></div>`;
     await sleep(1000);
   }
@@ -1919,12 +1998,13 @@ async function showSetup(state){
   const arch0 = cur.archive || {};
   const h0 = cur.hermes || {};
   el.innerHTML = `<div class="card">
+    <div style="position:relative"><button class="langsw ${HM_LANG}" id="sLang" title="Langue de l'interface / Interface language" data-noi18n><span data-l="fr">FR</span><span data-l="en">EN</span></button></div>
     <h1><span class="glyph">☤</span>${first ? 'Bienvenue dans Hermes Map' : 'Réglages'}</h1>
     <p class="lead">${first ? 'Hermes Map dessine une carte de tes dossiers de notes : dossiers, fichiers, liens entre notes et tags. Trois questions et c\'est parti.' : 'Modifie ce que Hermes Map explore. Rien n\'est déplacé ni supprimé en changeant ces réglages.'}</p>
     <div id="sDenied"></div>
     <section>
       <h2><span class="n">1</span>Hermes</h2>
-      ${H.command ? `<p class="hint"><span class="ok">✓ Hermes est installé</span> : <code>${esc(H.command)}</code>${(H.profiles||[]).length ? ` · profils : ${H.profiles.map(esc).join(', ')}` : ''}. Les boutons « Mettre à jour avec Hermes » et « Reclasser » seront disponibles.</p>`
+      ${H.command ? `<p class="hint"><span class="ok">✓ Hermes est installé</span> : <code>${esc(H.command)}</code>${(H.profiles||[]).length ? '<span> · ' + T('profils : {0}', H.profiles.map(esc).join(', ')) + '</span>' : ''}<span>. Les boutons « Mettre à jour avec Hermes » et « Reclasser » seront disponibles.</span></p>`
         : `<p class="hint">Hermes n'est pas installé sur ce Mac${H.home ? ' (le dossier ~/.hermes existe, mais pas la commande hermes)' : ''}. Pas grave : la carte fonctionne sans lui. Les fonctions Hermes apparaîtront quand la commande <code>hermes</code> sera installée.</p>`}
     </section>
     <section>
@@ -1977,9 +2057,9 @@ async function showSetup(state){
   const updArchHint = () => {
     const name = archName();
     const checked = [...document.querySelectorAll('#sTops input[data-t]:checked')].map(i => i.dataset.t).filter(t => t !== name);
-    const top = checked[0] || (chosen && (chosen.all||[]).find(t => t !== name)) || 'Voyages';
+    const top = checked[0] || (chosen && (chosen.all||[]).find(t => t !== name)) || (HM_LANG === 'en' ? 'Trips' : 'Voyages');
     const p = pre(), zone = (p && top.startsWith(p) ? top.slice(p.length) : top).toLowerCase();
-    $('#sArchHint').innerHTML = `Les notes restent dans leurs dossiers ; les fichiers (images, vidéos, PDF, documents…) vont dans le dossier de stockage, au même chemin : la note <code>${esc(top)}/japon.md</code> et ses photos dans <code>${esc(name)}/${esc(zone)}/</code>. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé tout de suite.`;
+    $('#sArchHint').innerHTML = `Les notes restent dans leurs dossiers ; les fichiers (images, vidéos, PDF, documents…) vont dans le dossier de stockage, au même chemin : la note <code>${esc(top)}/${HM_LANG === 'en' ? 'japan' : 'japon'}.md</code> et ses photos dans <code>${esc(name)}/${esc(zone)}/</code>. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé tout de suite.`;
     const exists = chosen && (chosen.all||[]).includes(name);
     $('#sArchName').style.display = $('#sArchSel').value === '__new' ? '' : 'none';
     $('#sArchState').innerHTML = !chosen ? '' : exists ? '<span class="ok">✓ dossier existant (rien n\'y sera ajouté)</span>' : 'sera créé (avec un README, un catalogue et un journal)';
@@ -2081,13 +2161,19 @@ async function showSetup(state){
     $('#sGo').disabled = false;
     if (r.error === 'denied'){ $('#sMsg').textContent = ''; $('#sDenied').innerHTML = deniedBox(r.path); bindDenied(); el.scrollTop = 0; return; }
     if (r.error){ $('#sMsg').textContent = '⚠️ ' + r.error; return; }
-    $('#sMsg').textContent = r.made && r.made.length ? 'Créé : ' + r.made.join(', ') : 'C\'est enregistré.';
+    $('#sMsg').textContent = r.made && r.made.length ? T('Créé : {0}', r.made.join(', ')) : 'C\'est enregistré.';
     setTimeout(() => location.reload(), r.made && r.made.length ? 1200 : 300);
   };
   renderCands();
+  $('#sLang').onclick = () => setLang(HM_LANG === 'en' ? 'fr' : 'en');
   if (sel) pick(sel);
 }
 $('#tSettings').onclick = () => showSetup({});
+// langue : l'interrupteur enregistre le choix (réglages) et recharge la page
+const setLang = async lg => { if (lg === HM_LANG) return; try { await hpost('/api/lang', {lang: lg}); } catch(e){} location.reload(); };
+$('#tLang').classList.add(HM_LANG);
+$('#tLang').onclick = () => setLang(HM_LANG === 'en' ? 'fr' : 'en');
+if ('__HM_LANG__' !== 'fr' && '__HM_LANG__' !== 'en') hpost('/api/lang', {lang: HM_LANG}).catch(() => {});
 
 load();
 // battement de cœur : tant qu'une page est ouverte, l'app reste allumée (elle s'éteint seule ensuite)

@@ -31,6 +31,8 @@ Un écran d'accueil pose trois questions :
    - **Non** : tout reste où c'est.
    - **Oui** : choisis le **dossier de stockage miroir**, un dossier existant ou un nouveau. Les notes restent dans leurs dossiers, et les fichiers (images, vidéos, PDF, documents…) vont dans le dossier de stockage, au **même chemin** : la note `Perso/voyages/japon.md` et ses photos dans `Stockage/perso/voyages/`. La carte montre les deux ensemble, et le reclassement (à la main ou par Hermes) suit cette règle. Rien n'est déplacé au moment du choix. Un nouveau dossier de stockage est créé avec un `README.md`, un catalogue `CATALOG.jsonl` et un journal `LOG.md` ; dans un dossier existant, rien n'est ajouté.
 
+**Langue** : l'interface existe en français et en anglais. L'interrupteur **FR / EN** en haut de l'écran (et sur l'écran d'accueil) change de langue ; le choix est retenu. Les consignes envoyées à Hermes suivent la langue choisie.
+
 Tout se modifie ensuite avec le bouton **⚙** (Réglages). Dans les réglages avancés, un **préfixe masqué** (facultatif) permet d'afficher `N_Pro` sous le nom « Pro ». Les réglages sont enregistrés dans `~/Library/Application Support/hermes-map/config.json` (Mac) ou `~/.config/hermes-map/config.json`.
 
 **Accès aux dossiers protégés (Mac).** Pour lire iCloud Drive ou d'autres dossiers protégés, macOS demande d'autoriser l'app. L'écran l'explique et le bouton **Ouvrir les Réglages** ouvre la bonne page : glisse Hermes Map dans **Réglages Système → Confidentialité et sécurité → Accès complet au disque**, active-la, puis relance l'app. C'est à faire une seule fois (à refaire si tu reconstruis l'app).

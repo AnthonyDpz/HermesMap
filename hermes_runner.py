@@ -71,6 +71,47 @@ Règles strictes :
 À la fin, résume ce que tu as changé."""
 
 
+DEFAULT_PROMPT_DIR_EN = """You are working in the “{nom}” folder of my Hermes knowledge base:
+{chemin}
+
+Update the Markdown (.md) files in this folder AND all its subfolders:
+1. Link notes that are about the same subject, person, place or project.
+2. In each note, add or complete a YAML header (between two --- lines) with a `tags:` field: 3 to 6 short tags, lowercase, without accents; reuse tags already present in the folder first.
+3. Create or update an INDEX.md file in each folder that contains notes: a short summary of the folder's contents, then the list of its files and subfolders with a link to each.
+
+Link format (mandatory):
+- Use ONLY standard Markdown links: [Readable title](relative/path/to/the-note.md). NEVER write [[…]] links.
+- The path is relative to the note that contains the link (e.g. ../places/paris.md). If the path contains spaces, wrap it in < >: [Title](<../my folder/note.md>).
+- The link text is the title of the target note (its “# Title” line), not the file name.
+- Before adding a link, check it doesn't already exist in the note (same target, whatever the form): no duplicates.
+- Don't change existing links. Follow the conventions described in the folder's INDEX.md / README.md files.
+
+Strict rules:
+- Work ONLY in this folder and its subfolders; never leave it.
+- Only change .md files; don't touch any other file type.
+- Don't delete, rename or move any file or folder.
+- Keep all existing text: add links and tags, don't rewrite or summarise the notes' content.
+- Don't run any command that changes the system; don't use the Internet.
+At the end, list the files you created or changed."""
+
+DEFAULT_PROMPT_FILE_EN = """You are working on the note “{nom}” of my Hermes knowledge base:
+{chemin}
+
+Update THIS file only:
+1. Add links to the other .md notes in the same folder ({dossier}) and its subfolders that are about the same subject.
+2. Add or complete a YAML header (between two --- lines) with a `tags:` field: 3 to 6 short tags, lowercase, without accents.
+
+Link format (mandatory):
+- ONLY standard Markdown links [Readable title](relative/path.md), never [[…]]; path relative to this note, wrapped in < > if it contains spaces.
+- Link text = title of the target note (its “# Title” line).
+- No duplicates: don't add a link to a note already linked in this file, whatever the form. Don't change existing links.
+
+Strict rules:
+- Change ONLY this file; you may read the other notes in the folder but not change them.
+- Keep all existing text: add links and tags, don't rewrite the content.
+- Don't delete, rename or move any file; don't use the Internet.
+At the end, summarise what you changed."""
+
 RECLASS_HEAD = """Reclassement de fichiers mal rangés dans ma base de connaissances (racine : {racine}).
 
 Fichiers à traiter ({nb}) :
@@ -78,6 +119,46 @@ Fichiers à traiter ({nb}) :
 
 Pour CHAQUE fichier :
 1. Analyse-le (regarde l'image / lis le document) : de quoi s'agit-il ? À quel dossier appartient-il vraiment ?"""
+
+RECLASS_TAIL_EN = """3. If you're not sure about the destination or the subject, DO NOT MOVE the file: explain why and suggest a destination.
+
+Strict rules:
+- Only move and rename the files listed above. Don't delete anything.
+- Only change text index files (.md, .yaml, .jsonl) in addition to these moves.
+- Don't use the Internet.
+At the end, give a table: old path → new path (or “left in place” + reason)."""
+
+
+def _reclass_prompt_en(cfg, zones):
+    z = ", ".join(zones[:30]) or "(top-level folders)"
+    ex = (zones or ["Projects"])[0]
+    lines = ["Reclassifying misfiled files in my knowledge base (root: {racine}).", "",
+             "Files to process ({nb}):", "{fichiers}", "",
+             "For EACH file:",
+             f"1. Analyse it (look at the image / read the document): what is it? Which folder does it really belong to? Main folders: {z}.",
+             "2. File it away:",
+             "   - new readable name, no emoji or random characters, correct extension;"]
+    arch = cfg.archive
+    if arch:
+        lines += [f"   - notes (.md) stay in the main folders; other files (images, videos, PDFs, documents…) go into the archive "
+                  f"folder, at the “mirror” path of the related note or folder: move (mv) to {arch}/<main folder without prefix, "
+                  f"lowercase>/<same path>/ (e.g. a file related to {ex}/trips/japan.md goes into "
+                  f"{arch}/{cfg.zone_name(ex).lower()}/trips/);",
+                  "   - update the indexes: remove the entry or link from the old location (catalog.yaml, INDEX.md, note) "
+                  "and add it in the right place at the destination;",
+                  f"   - update {cfg.archive_catalog} (one JSON entry per line, “rel” relative to {arch}) "
+                  f"and add a row to the table in {cfg.archive_log} (same format as the existing rows);"]
+    else:
+        lines += ["   - move (mv) it to the most suitable folder, preferably one that already exists;",
+                  "   - update the indexes: remove the entry or link from the old location (catalog.yaml, INDEX.md, note) "
+                  "and add it in the right place at the destination;"]
+    lines.append("   - standard relative Markdown links: [Title](relative/path); fix the links in notes that pointed "
+                 "to the old location.")
+    conv = [c for c in (cfg.hermes.get("conventions") or []) if c]
+    if conv:
+        lines.append("   - also apply the filing rules described in: " + ", ".join(conv) + ".")
+    return "\n".join(lines) + "\n" + RECLASS_TAIL_EN
+
 
 RECLASS_TAIL = """3. Si tu n'es pas sûr de la destination ou du sujet, NE DÉPLACE PAS ce fichier : explique pourquoi et propose une destination.
 
@@ -88,8 +169,10 @@ Règles strictes :
 À la fin, donne un tableau : ancien chemin → nouveau chemin (ou « laissé en place » + raison)."""
 
 
-def reclass_prompt(cfg, zones):
-    """Consigne de reclassement, adaptée aux réglages (avec ou sans dossier d'archivage)."""
+def reclass_prompt(cfg, zones, lang="fr"):
+    """Consigne de reclassement, adaptée aux réglages (avec ou sans dossier d'archivage) et à la langue."""
+    if lang == "en":
+        return _reclass_prompt_en(cfg, zones)
     z = ", ".join(zones[:30]) or "(dossiers du 1er niveau)"
     lines = [RECLASS_HEAD.replace("À quel dossier appartient-il vraiment ?",
                                   f"À quel dossier appartient-il vraiment ? Dossiers principaux : {z}."),
@@ -525,11 +608,13 @@ class Runner:
         except OSError:
             zones = []
         h = cfg.hermes
+        en = (cfg.data.get("language") or "") == "en"
         return {"hermes": self.hermes, "available": bool(self.hermes),
                 "running": bool(self.job and self.job.state in ("preparing", "running")),
                 "last": self.job.public(len(self.job.lines)) if self.job else None,
-                "prompt_dir": DEFAULT_PROMPT_DIR, "prompt_file": DEFAULT_PROMPT_FILE,
-                "prompt_reclass": reclass_prompt(cfg, zones), "profiles": self.profiles(),
+                "prompt_dir": DEFAULT_PROMPT_DIR_EN if en else DEFAULT_PROMPT_DIR,
+                "prompt_file": DEFAULT_PROMPT_FILE_EN if en else DEFAULT_PROMPT_FILE,
+                "prompt_reclass": reclass_prompt(cfg, zones, "en" if en else "fr"), "profiles": self.profiles(),
                 "profile": h.get("profile") or "", "reclass_profile": h.get("reclass_profile") or h.get("profile") or "",
                 "zone_prefix": cfg.zone_prefix, "archive": cfg.archive}
 

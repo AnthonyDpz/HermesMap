@@ -4,7 +4,7 @@ A visual explorer for your notes folders: a mind map of folders, files and the l
 
 ![Hermes Map](docs/screenshot.png)
 
-> The interface is in French. 🇫🇷 Full guide: [LISEZMOI.md](LISEZMOI.md)
+> English and French interface — switch with the **FR / EN** toggle in the header. 🇫🇷 Guide en français : [LISEZMOI.md](LISEZMOI.md)
 
 ## Features
 
@@ -37,6 +37,10 @@ python3 hermes_map.py
 ```
 
 Python 3.8+ only, no dependencies. Thumbnails and Office previews use macOS tools (`sips`, `qlmanage`, `textutil`); `ffmpeg`, if installed, converts AVI/MKV videos for playback.
+
+## Translations
+
+The interface text is written in French in the code and translated at display time with [`static/i18n/en.json`](static/i18n/en.json) (shared by the page and the server). After changing the interface, run `python3 tools/i18n_extract.py` to list the strings that still need an English translation.
 
 ## Privacy
 
