@@ -74,6 +74,7 @@ fn defaults() -> Value {
         "title": "",
         "zone_prefix": "",
         "ignore": [],
+        "ignore_files": [],
         "archive": {"enabled": false, "folder": "Archive", "catalog": "CATALOG.jsonl", "log": "LOG.md"},
         "hermes": {"enabled": true, "command": "", "args": "", "profile": "", "reclass_profile": "",
                     "workdir": "", "conventions": [], "backup_skip": []}

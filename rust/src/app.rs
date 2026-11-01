@@ -639,7 +639,7 @@ impl App {
 
     fn setup_save(self: &Arc<Self>, body: &Value) -> Value {
         let mut data = self.cfg().data;
-        for k in ["root", "include", "folders", "hidden_tops", "title", "zone_prefix", "ignore"] {
+        for k in ["root", "include", "folders", "hidden_tops", "title", "zone_prefix", "ignore", "ignore_files"] {
             if let Some(v) = body.get(k) {
                 data[k] = v.clone();
             }
