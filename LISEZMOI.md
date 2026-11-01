@@ -102,6 +102,17 @@ Déroulement :
 
 **Profil** : si un profil Hermes porte le nom d'une zone (profil `pro` pour la zone `Pro`), il est présélectionné quand tu travailles dans cette zone ; sinon c'est le profil choisi dans les Réglages.
 
+## Modifier une note
+
+Les fichiers texte (`.md`, `.txt`, `.json`, `.yaml`, `.csv`…) s'ouvrent en lecture. Le bouton **✎ Modifier**, en haut du panneau, les ouvre dans un éditeur :
+- **Éditer / Aperçu** pour voir le rendu avant d'enregistrer ;
+- **Cmd+S** (ou **Enregistrer**) enregistre, **Échap** (ou **Annuler**) revient à la lecture ; l'app te prévient si tu quittes avec des modifications non enregistrées ;
+- si le fichier a été modifié ailleurs entre-temps (Hermes, Obsidian, iCloud…), l'app ne l'écrase pas sans te le demander ;
+- l'ancienne version est sauvegardée, et **↶ Annuler la modification** la remet ;
+- après l'enregistrement, la carte se met à jour (nouveaux liens, nouveaux tags).
+
+Ne sont pas modifiables : les fichiers de plus de 2 Mo, les fichiers à valeurs masquées (`.env`, `auth.json`…) et ceux qui ne sont pas en UTF-8.
+
 ## Reclasser un fichier mal rangé
 
 Coche un ou plusieurs fichiers (case sur la vignette ou la ligne), puis choisis une action dans la barre du bas.
@@ -135,7 +146,7 @@ python3 hermes_map.py --no-hermes
 
 - Le serveur n'écoute que sur ta machine (`127.0.0.1`). Les actions qui écrivent sont protégées par un jeton secret propre à chaque lancement : un autre site ouvert dans ton navigateur ne peut pas les déclencher.
 - L'app n'envoie rien sur Internet (toutes les bibliothèques sont incluses). Quand tu lances Hermes, c'est lui qui contacte le modèle configuré dans ses réglages.
-- L'exploration est en lecture seule. Seules trois actions écrivent, toujours à ta demande, après sauvegarde et avec annulation possible : **Mettre à jour avec Hermes**, **Reclasser avec Hermes** et **Déplacer / renommer**. Activer l'archivage crée le dossier d'archivage s'il n'existe pas.
+- L'exploration est en lecture seule. Seules quatre actions écrivent, toujours à ta demande, après sauvegarde et avec annulation possible : **Modifier** une note, **Mettre à jour avec Hermes**, **Reclasser avec Hermes** et **Déplacer / renommer**. Activer l'archivage crée le dossier d'archivage s'il n'existe pas.
 - Les miniatures et vidéos converties sont en cache dans `~/Library/Caches/hermes-map` ; tu peux supprimer ce dossier à tout moment.
 
 ## Soutenir le projet

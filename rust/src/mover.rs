@@ -16,6 +16,9 @@ use std::sync::Arc;
 
 static MDLINK: Lazy<Regex> = Lazy::new(|| Regex::new(r#"(!?\[[^\]]*\]\()(<[^>\n]+>|[^)\s]+)((?:\s+"[^"]*")?\))"#).unwrap());
 
+/// un enregistrement à la fois
+static SAVE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub fn journal_dir() -> PathBuf {
     config::data_dir().join("moves")
 }
@@ -584,6 +587,77 @@ impl Mover {
                 Self::note(report, format!("{} lien(s) mis à jour dans {}", count, rel));
             }
         }
+    }
+
+    /// Enregistre le texte modifié dans le panneau. Sauvegarde l'ancienne version (annulable comme un
+    /// déplacement) et refuse d'écraser un fichier modifié ailleurs entre-temps, sauf si force.
+    pub fn save_text(&self, rel: &str, text: &str, base_sha: &str, force: bool) -> Value {
+        let _guard = SAVE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let p = match self.app.safe(rel) {
+            Ok(p) => p,
+            Err(e) => return json!({"ok": false, "error": e}),
+        };
+        let rel = crate::util::rel_of(&self.root, &p);
+        if !p.is_file() {
+            return json!({"ok": false, "error": "fichier introuvable"});
+        }
+        let old = match fs::read(&p) {
+            Ok(b) => b,
+            Err(e) => return json!({"ok": false, "error": format!("lecture impossible : {}", e)}),
+        };
+        let sha1 = |b: &[u8]| {
+            let mut h = sha1_smol::Sha1::new();
+            h.update(b);
+            h.digest().to_string()
+        };
+        let cur_sha = sha1(&old);
+        if !base_sha.is_empty() && cur_sha != base_sha && !force {
+            return json!({"ok": false, "conflict": true,
+                "error": "Ce fichier a été modifié ailleurs depuis son ouverture (Hermes, Obsidian, iCloud…)."});
+        }
+        let mut t = text.replace("\r\n", "\n");
+        if old.windows(2).any(|w| w == b"\r\n") {
+            t = t.replace('\n', "\r\n"); // garde les fins de ligne Windows du fichier
+        }
+        if old.starts_with(b"\xef\xbb\xbf") && !t.starts_with('\u{feff}') {
+            t.insert(0, '\u{feff}'); // et son éventuel BOM
+        }
+        let new = t.into_bytes();
+        if new == old {
+            return json!({"ok": true, "unchanged": true, "sha": cur_sha});
+        }
+        let stamp = format!("{}_{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"), std::process::id() % 1000);
+        let mut jid = stamp.clone();
+        let mut n = 1;
+        while journal_dir().join(&jid).exists() {
+            n += 1;
+            jid = format!("{}_{}", stamp, n);
+        }
+        let jdir = journal_dir().join(&jid);
+        let dst = jdir.join("texts").join(&rel);
+        if let Some(d) = dst.parent() {
+            let _ = fs::create_dir_all(d);
+        }
+        if let Err(e) = fs::copy(&p, &dst) {
+            return json!({"ok": false, "error": format!("sauvegarde impossible : {}", e)});
+        }
+        let tmp = p.with_file_name(format!(".{}.hm-tmp", p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()));
+        let res = fs::write(&tmp, &new)
+            .and_then(|_| fs::metadata(&p).and_then(|m| fs::set_permissions(&tmp, m.permissions())))
+            .and_then(|_| fs::rename(&tmp, &p));
+        if let Err(e) = res {
+            let _ = fs::remove_file(&tmp);
+            return json!({"ok": false, "error": format!("enregistrement impossible : {}", e)});
+        }
+        let sha = sha1(&new);
+        let mut texts = Map::new();
+        texts.insert(rel.clone(), json!({"existed": true, "sha_after": sha}));
+        let journal = json!({"id": jid, "time": now(), "moves": [], "created_dirs": [], "note": "édition", "edit": rel, "texts": texts});
+        let _ = fs::write(jdir.join("journal.json"), serde_json::to_string_pretty(&journal).unwrap_or_default());
+        self.app.start_scan();
+        let md = fs::metadata(&p).ok();
+        json!({"ok": true, "id": jid, "sha": sha, "size": md.as_ref().map(|m| m.len()).unwrap_or(0),
+               "mtime": md.as_ref().map(crate::media::mtime).unwrap_or(0.0), "journal": jdir.to_string_lossy()})
     }
 
     pub fn undo(&self, jid: &str) -> Value {

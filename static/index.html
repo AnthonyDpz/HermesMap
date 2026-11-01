@@ -135,6 +135,21 @@ pre.hdiff .a{background:rgba(95,211,166,.12);color:#9be8c8}
 pre.hdiff .r{background:rgba(255,122,122,.12);color:#ffb0b0}
 pre.hdiff .h{color:var(--accent2)}
 .ptitle .close{margin-left:0}
+.ptitle .ebtn{font-size:12.5px}
+.ptitle .ebtn.on{border-color:var(--accent2);color:var(--accent2)}
+.editor .edbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.editor .edbar .sp{flex:1}
+.editor .edbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.editor .edbar .seg .tbtn{border:0;border-radius:0}
+.editor .edbar .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:600}
+.editor .edbar .tbtn.danger{border-color:rgba(255,122,122,.5);color:var(--danger)}
+.editor .edstate{font-size:12px;color:var(--muted)}
+.editor .edstate.dirty{color:var(--accent)}
+.editor textarea{display:block;width:100%;box-sizing:border-box;height:calc(100vh - 250px);min-height:260px;resize:vertical;background:#07090d;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font:13px/1.55 var(--mono);outline:none;tab-size:4}
+.editor textarea:focus{border-color:var(--accent2)}
+.editor .edwarn{background:rgba(245,184,75,.1);border:1px solid rgba(245,184,75,.4);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12.5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.edsaved{background:rgba(95,211,166,.1);border:1px solid rgba(95,211,166,.4);color:#9be8c8;border-radius:8px;padding:7px 10px;margin-bottom:12px;font-size:12.5px;display:flex;gap:8px;align-items:center}
+.edsaved .tbtn{padding:3px 8px;font-size:12px}
 .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .chip{font-size:11.5px;color:var(--muted);background:var(--bg3);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
 .chip.warn{color:var(--accent);border-color:rgba(245,184,75,.4)}
@@ -333,7 +348,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 <div id="app">
   <header>
     <!-- Version de l'app : changement majeur (fonctionnalité ou correctif important) +0.01, mineur +0.0001 -->
-    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1102</span> <small id="rootPath"></small></div>
+    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1202</span> <small id="rootPath"></small></div>
     <div class="search">
       <span class="ico">⌕</span>
       <input id="q" placeholder="Rechercher partout (noms, dossiers, tags)…  ( / )" autocomplete="off">
@@ -371,6 +386,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
         <div class="crumbs" id="crumbs"></div>
         <div class="ptitle"><button class="tbtn back" id="pback2" title="Revenir à l'écran précédent (Retour arrière)">←</button><span id="picon" style="font-size:20px"></span><h2 id="ptitle"></h2>
           <button class="tbtn hbtn" id="phermes" title="Demander à Hermes de mettre à jour les notes .md à partir d'ici">☤ Mettre à jour avec Hermes</button>
+          <button class="tbtn ebtn" id="pedit" title="Modifier ce fichier (Cmd+S pour enregistrer)" style="display:none">✎ Modifier</button>
           <button class="tbtn close" id="pclose" title="Fermer (Échap)">✕</button></div>
         <div class="meta" id="pmeta"></div>
       </div>
@@ -497,6 +513,7 @@ let byId = new Map();
 let neighbors = new Map();
 let currentImages = [], lbIndex = 0, lbList = [];
 let panelPath = null, panelStack = [], dirState = null;
+let panelInfo = null, editState = null, lastEdit = null;
 let refAlpha = .45;
 let mode = '2d', G3 = null, g3Nodes = new Map(), autoRotate = true;
 const TAG_COLOR = '#ff6fa0', AUTO_TAG_COLOR = '#7cc4ff';
@@ -929,6 +946,8 @@ function focusNode(id){
 
 // ---------------- Panneau de droite ----------------
 async function openPanel(path, opts={}){
+  if (!leaveEditOk()) return;
+  if (lastEdit && lastEdit.path !== path) lastEdit = null;
   if (panelPath !== null && panelPath !== path && !opts.back){
     panelStack.push({path: panelPath, scroll: $('#pbody').scrollTop,
                      dir: dirState && dirState.path===panelPath ? {...dirState, info:null} : null});
@@ -936,6 +955,7 @@ async function openPanel(path, opts={}){
   }
   panelPath = path;
   $('#phermes').style.display = (path && !path.startsWith('#tag:')) ? '' : 'none';
+  $('#pedit').style.display = 'none'; $('#pedit').classList.remove('on');
   $('#pback2').classList.toggle('show', panelStack.length > 0);
   $('#panel').classList.remove('hidden'); $('#resizer').classList.remove('hidden');
   setTimeout(resizeGraph, 0);
@@ -1008,7 +1028,11 @@ async function openPanel(path, opts={}){
     html += `<div class="empty">Fichier binaire — aperçu non disponible. <a href="${raw(info.path)}" target="_blank" style="color:var(--accent2)">Ouvrir / télécharger</a></div>`;
   }
   html += renderRefs(path||'/');
+  if (lastEdit && lastEdit.path === info.path) html = editSavedBanner() + html;
   body.innerHTML = html;
+  panelInfo = info;
+  if (info.editable){ $('#pedit').style.display = ''; }
+  wireEditSaved(body);
   if (k !== 'dir' && k !== 'tag'){ dirState = null; renderSelBar(); }
   wirePanel(body, info);
   if (k === 'video') playVideo($('#pvideo'), {path: info.path, name: info.name});
@@ -1019,6 +1043,118 @@ async function openPanel(path, opts={}){
   }
   if (k === 'dir' || k === 'tag'){ wireFilters(); renderDirView(); }
   body.scrollTop = (opts.restore && opts.restore.scroll) || 0;
+}
+
+// ---------------- Édition d'un fichier texte ----------------
+const isDirty = () => !!(editState && $('#edText') && $('#edText').value !== editState.orig);
+function leaveEditOk(){
+  if (!editState) return true;
+  if (isDirty() && !confirm(T('Des modifications ne sont pas enregistrées. Les abandonner ?'))) return false;
+  editState = null; return true;
+}
+window.addEventListener('beforeunload', e => { if (isDirty()){ e.preventDefault(); e.returnValue = ''; } });
+$('#pedit').onclick = () => { if (editState) editCancel(); else editOpen(); };
+
+function editOpen(){
+  const info = panelInfo;
+  if (!info || !info.editable) return;
+  editState = {path: info.path, sha: info.sha, orig: info.text, info, mode: 'edit', scroll: $('#pbody').scrollTop};
+  $('#pedit').classList.add('on'); $('#pedit').textContent = '✎ Modifier';
+  const body = $('#pbody');
+  body.innerHTML = `<div class="editor">
+    <div id="edWarn"></div>
+    <div class="edbar">
+      <span class="seg"><button class="tbtn on" data-m="edit">Éditer</button><button class="tbtn" data-m="preview">Aperçu</button></span>
+      <span class="edstate" id="edState">Aucune modification</span><span class="sp"></span>
+      <button class="tbtn" id="edCancel" title="Revenir à la lecture sans enregistrer (Échap)">Annuler</button>
+      <button class="tbtn primary" id="edSave" title="Enregistrer (Cmd+S)">Enregistrer</button>
+    </div>
+    <textarea id="edText" spellcheck="false" autocomplete="off"></textarea>
+    <div id="edPrev" style="display:none"></div>
+  </div>`;
+  const ta = $('#edText');
+  ta.value = info.text;
+  ta.oninput = editUpdateState;
+  ta.onkeydown = e => {
+    if ((e.metaKey || e.ctrlKey) && (e.key==='s' || e.key==='S')){ e.preventDefault(); e.stopPropagation(); editSave(); }
+    else if (e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); editCancel(); }
+    else if (e.key==='Tab' && !e.metaKey && !e.ctrlKey && !e.altKey){
+      e.preventDefault(); ta.setRangeText(e.shiftKey ? '' : '\t', ta.selectionStart, ta.selectionEnd, 'end'); editUpdateState();
+    }
+  };
+  body.querySelectorAll('.seg [data-m]').forEach(b => b.onclick = () => editMode(b.dataset.m));
+  $('#edCancel').onclick = editCancel;
+  $('#edSave').onclick = () => editSave();
+  body.scrollTop = 0;
+  ta.focus(); ta.setSelectionRange(0, 0);
+}
+function editUpdateState(){
+  const d = isDirty(), st = $('#edState');
+  if (!st) return;
+  st.textContent = d ? T('Modifications non enregistrées') : T('Aucune modification');
+  st.classList.toggle('dirty', d);
+}
+function editMode(m){
+  if (!editState) return;
+  editState.mode = m;
+  $('#pbody').querySelectorAll('.seg [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  const ta = $('#edText'), pv = $('#edPrev');
+  if (m === 'preview'){
+    const info = {...editState.info, text: ta.value};
+    pv.innerHTML = renderText(info);
+    wirePanel(pv, info);
+    ta.style.display = 'none'; pv.style.display = '';
+  } else {
+    pv.style.display = 'none'; pv.innerHTML = ''; ta.style.display = ''; ta.focus();
+  }
+}
+function editCancel(){
+  if (!editState) return;
+  if (isDirty() && !confirm(T('Des modifications ne sont pas enregistrées. Les abandonner ?'))) return;
+  const scroll = editState.scroll;
+  editState = null;
+  openPanel(panelPath, {back: true, restore: {scroll}});
+}
+async function editSave(force=false){
+  if (!editState || editState.saving) return;
+  if (!isDirty() && !force){ editCancel(); return; }
+  const btn = $('#edSave'); btn.disabled = true; btn.textContent = T('Enregistrement…');
+  editState.saving = true;
+  let r;
+  try { r = await hpost('/api/save', {path: editState.path, text: $('#edText').value, base_sha: editState.sha, force}); }
+  catch(e){ r = {error: T("Hermes Map ne répond plus : relance l'app, puis réessaie (ton texte est toujours dans l'éditeur).")}; }
+  if (!editState) return;
+  editState.saving = false;
+  btn.disabled = false; btn.textContent = T('Enregistrer');
+  if (r.conflict){
+    $('#edWarn').innerHTML = `<div class="edwarn">⚠️ ${esc(r.error)}<span class="sp" style="flex:1"></span><button class="tbtn danger" id="edForce">Enregistrer quand même</button><a class="tbtn" href="${raw(editState.path)}" target="_blank">Voir la version actuelle ↗</a></div>`;
+    $('#edForce').onclick = () => editSave(true);
+    return;
+  }
+  if (!r.ok){
+    $('#edWarn').innerHTML = `<div class="edwarn">⚠️ ${esc(r.error || T('enregistrement impossible'))}</div>`;
+    return;
+  }
+  const path = editState.path;
+  editState = null;
+  if (r.id) lastEdit = {path, id: r.id};
+  afterFsChange();
+}
+function editSavedBanner(){
+  return `<div class="edsaved">✓ <span>Enregistré.</span><span style="flex:1"></span><button class="tbtn" id="edUndo" title="Remettre la version d'avant">↶ Annuler la modification</button></div>`;
+}
+function wireEditSaved(body){
+  const b = body.querySelector('#edUndo');
+  if (!b) return;
+  b.onclick = async () => {
+    if (!confirmInline('#edUndo', T('Confirmer : remettre la version d’avant ?'))) return;
+    const u = await hpost('/api/move/undo', {id: lastEdit.id});
+    lastEdit = null;
+    if (!u.ok || (u.skipped || []).length){
+      alert(u.ok ? T('Annulation impossible : le fichier a été modifié depuis.') : (u.error || T('annulation impossible')));
+    }
+    afterFsChange();
+  };
 }
 
 function panelBack(){
@@ -2040,8 +2176,9 @@ $('#tQuit').onclick = async () => {
 };
 document.addEventListener('fullscreenchange', () => { $('#tFull').classList.toggle('on', !!document.fullscreenElement); setTimeout(resizeGraph, 120); });
 $('#pclose').onclick = closePanel;
-function closePanel(){ panelPath = null; panelStack = []; $('#pback2').classList.remove('show'); $('#panel').classList.add('hidden'); $('#resizer').classList.add('hidden'); clearHL(); setTimeout(resizeGraph,0); }
+function closePanel(){ if (!leaveEditOk()) return; panelPath = null; panelStack = []; $('#pback2').classList.remove('show'); $('#panel').classList.add('hidden'); $('#resizer').classList.add('hidden'); clearHL(); setTimeout(resizeGraph,0); }
 document.addEventListener('keydown', e => {
+  if (editState && (e.metaKey || e.ctrlKey) && (e.key==='s' || e.key==='S')){ e.preventDefault(); editSave(); return; }
   if (e.target.tagName==='INPUT' || e.target.tagName==='SELECT' || e.target.tagName==='TEXTAREA'){ return; }
   if (e.key==='/'){ e.preventDefault(); $('#q').focus(); }
   else if (e.key==='f' || e.key==='F') toggleFull();
