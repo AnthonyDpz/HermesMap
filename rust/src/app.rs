@@ -21,6 +21,8 @@ use tiny_http::{Header, Request, Response, StatusCode};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const MAX_TEXT: u64 = 2_000_000;
+/// fichiers modifiables dans le panneau
+const EDITABLE_KINDS: [&str; 4] = ["markdown", "json", "config", "text"];
 
 static INDEX_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; \
 img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; \
@@ -559,6 +561,17 @@ impl App {
                     media::open_in_app(&f, b.get("reveal").and_then(|v| v.as_bool()).unwrap_or(false))?;
                     j(json!({"ok": true}))
                 }
+                "/api/save" => {
+                    let f = self.safe(&s("path"))?;
+                    let text = b.get("text").and_then(|v| v.as_str());
+                    let Some(text) = text.filter(|_| f.is_file()) else { return Ok(jerr("fichier introuvable", 400)) };
+                    let size = fs::metadata(&f).map(|m| m.len()).unwrap_or(u64::MAX);
+                    if !EDITABLE_KINDS.contains(&kind_of(&f).as_str()) || !media::is_texty(&f) || size > MAX_TEXT || text.len() as u64 > MAX_TEXT {
+                        return Ok(jerr("ce fichier ne peut pas être modifié ici", 400));
+                    }
+                    let mv = mover::Mover::new(self.clone())?;
+                    j(mv.save_text(&s("path"), text, &s("base_sha"), b.get("force").and_then(|v| v.as_bool()).unwrap_or(false)))
+                }
                 "/api/move" | "/api/move/plan" | "/api/move/undo" => {
                     let mv = mover::Mover::new(self.clone())?;
                     let items = b.get("items").cloned().unwrap_or(json!([]));
@@ -920,8 +933,18 @@ impl App {
             info["tables"] = db_tables(&p).unwrap_or(json!([]));
         } else if ["markdown", "json", "config", "text"].contains(&k.as_str()) {
             if media::is_texty(&p) || ["markdown", "json", "config"].contains(&k.as_str()) {
-                info["text"] = json!(read_text(&p, MAX_TEXT));
+                let mut raw = vec![];
+                if let Ok(f) = fs::File::open(&p) {
+                    let _ = f.take(MAX_TEXT).read_to_end(&mut raw);
+                }
+                info["text"] = json!(String::from_utf8_lossy(&raw));
                 info["truncated"] = json!(md.len() > MAX_TEXT);
+                if md.len() <= MAX_TEXT && std::str::from_utf8(&raw).is_ok() {
+                    let mut h = sha1_smol::Sha1::new();
+                    h.update(&raw);
+                    info["editable"] = json!(true);
+                    info["sha"] = json!(h.digest().to_string());
+                }
             } else {
                 info["kind"] = json!("binary");
             }

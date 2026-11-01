@@ -368,7 +368,27 @@
   "🔐 valeurs masquées": "🔐 values masked",
   "🗄 Inclure l'archive miroir": "🗄 Include mirror archive",
   "🛟 Avant de commencer, Hermes Map sauvegarde les index (.md, .yaml, .jsonl) de tous les dossiers suivis et note l'empreinte de chaque fichier. À la fin : où chaque fichier est parti (même renommé), le détail des index modifiés, et un bouton": "🛟 Before starting, Hermes Map backs up the indexes (.md, .yaml, .jsonl) of all tracked folders and records each file's fingerprint. At the end: where each file went (even if renamed), the details of changed indexes, and an",
-  "🛟 Avant de commencer, Hermes Map sauvegarde tous les": "🛟 Before starting, Hermes Map backs up all the"
+  "🛟 Avant de commencer, Hermes Map sauvegarde tous les": "🛟 Before starting, Hermes Map backs up all the",
+  "Annulation impossible : le fichier a été modifié depuis.": "Cannot undo: the file has been changed since.",
+  "Aperçu": "Preview",
+  "Aucune modification": "No changes",
+  "Ce fichier a été modifié ailleurs depuis son ouverture (Hermes, Obsidian, iCloud…).": "This file was changed elsewhere since it was opened (Hermes, Obsidian, iCloud…).",
+  "ce fichier ne peut pas être modifié ici": "this file cannot be edited here",
+  "Confirmer : remettre la version d’avant ?": "Confirm: restore the previous version?",
+  "Des modifications ne sont pas enregistrées. Les abandonner ?": "Some changes are not saved. Discard them?",
+  "enregistrement impossible": "could not save",
+  "Enregistrer (Cmd+S)": "Save (Cmd+S)",
+  "Enregistrer quand même": "Save anyway",
+  "Enregistré.": "Saved.",
+  "Hermes Map ne répond plus : relance l'app, puis réessaie (ton texte est toujours dans l'éditeur).": "Hermes Map is not responding: restart the app, then try again (your text is still in the editor).",
+  "Modifications non enregistrées": "Unsaved changes",
+  "Modifier ce fichier (Cmd+S pour enregistrer)": "Edit this file (Cmd+S to save)",
+  "Remettre la version d'avant": "Restore the previous version",
+  "Revenir à la lecture sans enregistrer (Échap)": "Back to reading without saving (Esc)",
+  "Voir la version actuelle ↗": "See the current version ↗",
+  "Éditer": "Edit",
+  "↶ Annuler la modification": "↶ Undo the change",
+  "✎ Modifier": "✎ Edit"
  },
  "patterns": {
   "(sur {0})": "(of {0})",
@@ -457,7 +477,10 @@
   "✏️ {0} écrit(s)": "✏️ {0} written",
   "✨ {0} créé(s)": "✨ {0} created",
   "👁 {0} lu(s)": "👁 {0} read",
-  "📦 {0} déplacé(s)": "📦 {0} moved"
+  "📦 {0} déplacé(s)": "📦 {0} moved",
+  "enregistrement impossible : {0}": "could not save: {0}",
+  "sauvegarde impossible : {0}": "could not back up: {0}",
+  "lecture impossible : {0}": "could not read: {0}"
  },
  "same": [
   "\" placeholder=\"fichiers .md de conventions, ex. Accueil/CONVENTIONS.md\">",
@@ -501,6 +524,8 @@
   "{nom}",
   "· 5 000 premiers",
   "· chargement des sous-dossiers…",
-  "· sous-dossiers compris"
+  "· sous-dossiers compris",
+  "Version",
+  "Tab"
  ]
 }

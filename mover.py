@@ -12,11 +12,13 @@ import posixpath
 import re
 import shutil
 import sys
+import threading
 import time
 from pathlib import Path
 
 import settings
 
+SAVE_LOCK = threading.Lock()   # un enregistrement à la fois
 JOURNAL = (Path(os.path.expanduser("~/Library/Application Support/hermes-map/moves")) if sys.platform == "darwin"
            else Path(os.path.expanduser("~/.local/share/hermes-map/moves")))
 MDLINK = re.compile(r"(?<!!)(\[[^\]]*\]\()(<[^>\n]+>|[^)\s]+)((?:\s+\"[^\"]*\")?\))")
@@ -437,6 +439,59 @@ class Mover:
                 report["notes"].append(f"{count[0]} lien(s) mis à jour dans {rel}")
 
     # ------------------------------------------------------------ annulation
+    # ------------------------------------------------------------ édition d'un fichier texte
+    def save_text(self, rel, text, base_sha=None, force=False):
+        """Enregistre le texte modifié dans le panneau. Sauvegarde l'ancienne version (annulable comme un
+        déplacement) et refuse d'écraser un fichier modifié ailleurs entre-temps, sauf si force."""
+        with SAVE_LOCK:
+            return self._save_text(rel, text, base_sha, force)
+
+    def _save_text(self, rel, text, base_sha, force):
+        p = self.app.safe(rel)
+        rel = self.sc.rel(p)
+        if not p.is_file():
+            return {"ok": False, "error": "fichier introuvable"}
+        old = p.read_bytes()
+        cur_sha = hashlib.sha1(old).hexdigest()
+        if base_sha and cur_sha != base_sha and not force:
+            return {"ok": False, "conflict": True,
+                    "error": "Ce fichier a été modifié ailleurs depuis son ouverture (Hermes, Obsidian, iCloud…)."}
+        text = text.replace("\r\n", "\n")
+        if b"\r\n" in old:
+            text = text.replace("\n", "\r\n")         # garde les fins de ligne Windows du fichier
+        if old.startswith(b"\xef\xbb\xbf") and not text.startswith("\ufeff"):
+            text = "\ufeff" + text                     # et son éventuel BOM
+        new = text.encode("utf-8")
+        if new == old:
+            return {"ok": True, "unchanged": True, "sha": cur_sha}
+        jid = time.strftime("%Y-%m-%d_%H-%M-%S") + f"_{os.getpid() % 1000}"
+        n = 1
+        while (JOURNAL / jid).exists():
+            n += 1
+            jid = time.strftime("%Y-%m-%d_%H-%M-%S") + f"_{os.getpid() % 1000}_{n}"
+        jdir = JOURNAL / jid
+        dst = jdir / "texts" / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, dst)
+        tmp = p.with_name("." + p.name + ".hm-tmp")
+        try:
+            tmp.write_bytes(new)
+            shutil.copymode(p, tmp)
+            os.replace(tmp, p)
+        except OSError as e:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+            return {"ok": False, "error": f"enregistrement impossible : {e}"}
+        sha = hashlib.sha1(new).hexdigest()
+        journal = {"id": jid, "time": time.time(), "moves": [], "created_dirs": [], "note": "édition", "edit": rel,
+                   "texts": {rel: {"existed": True, "sha_after": sha}}}
+        (jdir / "journal.json").write_text(json.dumps(journal, ensure_ascii=False, indent=1), "utf-8")
+        self.app.start_scan()
+        st = p.stat()
+        return {"ok": True, "id": jid, "sha": sha, "size": st.st_size, "mtime": st.st_mtime, "journal": str(jdir)}
+
     def undo(self, jid):
         jdir = JOURNAL / jid
         j = json.loads((jdir / "journal.json").read_text("utf-8"))

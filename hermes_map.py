@@ -57,6 +57,7 @@ MAX_REFS_PER_FILE = 12
 MAX_NODES = 4000          # au-delà, les dossiers trop gros sont résumés
 MAX_CHILDREN = 250        # nb max d'éléments affichés par dossier dans le graphe
 MAX_TEXT = 2_000_000      # taille max lue pour un fichier texte (2 Mo)
+EDITABLE_KINDS = ("markdown", "json", "config", "text")   # fichiers modifiables dans le panneau
 SCAN_TEXT_LIMIT = 400_000 # taille max analysée pour trouver des liens
 
 TEXT_EXT = {
@@ -1229,6 +1230,18 @@ def make_handler(app: App):
                         media_tools.open_privacy_settings(os.environ.get("HM_APP"))
                         return self.send_json({"ok": True})
                     return self.send_json(self.setup_save(body))
+                if u.path == "/api/save":
+                    n = int(self.headers.get("Content-Length") or 0)
+                    body = json.loads(self.rfile.read(n) or b"{}") if n else {}
+                    p = app.safe(body.get("path", ""))
+                    text = body.get("text")
+                    if not p.is_file() or not isinstance(text, str):
+                        return self.send_json({"error": "fichier introuvable"}, 400)
+                    if kind_of(p) not in EDITABLE_KINDS or not is_texty(p) or p.stat().st_size > MAX_TEXT \
+                            or len(text.encode("utf-8")) > MAX_TEXT:
+                        return self.send_json({"error": "ce fichier ne peut pas être modifié ici"}, 400)
+                    return self.send_json(mover.Mover(app).save_text(body["path"], text, body.get("base_sha"),
+                                                                     bool(body.get("force"))))
                 if u.path == "/api/open":
                     n = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(n) or b"{}") if n else {}
@@ -1401,6 +1414,13 @@ def make_handler(app: App):
                         raw = f.read(MAX_TEXT)
                     info["text"] = raw.decode("utf-8", errors="replace")
                     info["truncated"] = st.st_size > MAX_TEXT
+                    if not info["truncated"]:
+                        try:
+                            raw.decode("utf-8")
+                            info["editable"] = True
+                            info["sha"] = hashlib.sha1(raw).hexdigest()
+                        except UnicodeDecodeError:
+                            pass
                 else:
                     info["kind"] = "binary"
             return info
