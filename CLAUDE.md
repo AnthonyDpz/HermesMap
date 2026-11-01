@@ -15,3 +15,4 @@ Historique :
 - v0.1000 : version de départ (état du 27 octobre 2026)
 - v0.1100 : fichiers ignorés (réglage + bouton « Ignorés ») — majeur
 - v0.1101 : numéro de version affiché à côté du nom de l'app — mineur
+- v0.1102 : build_app.sh — correctif de signature (attributs iCloud) et option --rust — mineur
