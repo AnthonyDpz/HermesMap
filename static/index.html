@@ -340,6 +340,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
     <div class="spacer"></div>
     <button class="tbtn on" id="tRefs" title="Afficher les liens entre fichiers (références, mentions)">Liens</button>
     <button class="tbtn on" id="tFiles" title="Afficher les fichiers (sinon seulement les dossiers)">Fichiers</button>
+    <button class="tbtn" id="tIgnored" title="Afficher / masquer les fichiers ignorés (liste dans les réglages ⚙)" style="display:none">Ignorés</button>
     <button class="tbtn on" id="tLabels" title="Afficher les noms">Noms</button>
     <button class="tbtn on" id="tTags" title="Afficher / masquer les tags (◆) sur la carte : ils relient des éléments de branches différentes">Tags</button>
     <button class="tbtn" id="t3d" title="Basculer entre la carte 2D et la sphère 3D">◎ 3D</button>
@@ -471,6 +472,21 @@ const GROUP_LABELS = {memories:'Mémoires',skills:'Skills',sessions:'Sessions',c
 
 let data = null, G = null;
 let showRefs = true, showFiles = true, showLabels = true, showTags = true;
+let showIgnored = false; try { showIgnored = localStorage.getItem('hm-ignored') === '1'; } catch(e){}
+// fichiers ignorés : motifs des réglages (« AGENTS.md, *.tmp, Pro/notes/brouillon*.md »), sans casse.
+// Sans « / » le motif vise le nom du fichier, avec « / » le chemin depuis le dossier exploré.
+let ignoreRes = [];
+function setIgnorePatterns(list){
+  ignoreRes = (list || []).map(p => String(p).trim()).filter(Boolean).map(p => {
+    const rx = p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+    return {full: p.includes('/'), re: new RegExp('^' + rx + '$', 'i')};
+  });
+}
+const isIgnored = n => {
+  if (!ignoreRes.length || !n || n.kind==='dir' || n.kind==='root' || n.kind==='tag' || n.kind==='more') return false;
+  const path = String(n.path || n.id || ''), name = n.name || path.split('/').pop();
+  return ignoreRes.some(r => r.re.test(r.full ? path : name));
+};
 let hiddenGroups = new Set();
 let selected = null, hoverNode = null;
 let hl = new Set(), hlLinks = new Set();
@@ -525,6 +541,9 @@ async function load(refresh=false){
   const prev = data ? data.scanned_at : 0;
   $('#loading').style.display='grid';
   try { CFG = await (await fetch('/api/config')).json(); } catch(e){}
+  setIgnorePatterns(CFG.ignore_files);
+  $('#tIgnored').style.display = ignoreRes.length ? '' : 'none';
+  $('#tIgnored').classList.toggle('on', showIgnored);
   let g = await fetchGraph(refresh);
   if (g.setup){ $('#loading').style.display='none'; return showSetup(g); }
   // attendre que l'arborescence soit prête (le serveur analyse en arrière-plan)
@@ -578,6 +597,7 @@ function visibleData(){
     if (n.kind==='tag') return showTags;
     if (hiddenGroups.has(n.group)) return false;
     if (!showFiles && n.kind!=='dir' && n.kind!=='more') return false;
+    if (!showIgnored && isIgnored(n)) return false;
     return true;
   };
   const nodes = data.nodes.filter(keep);
@@ -1124,7 +1144,7 @@ function filteredChildren(){
   const base = fromSearch ? st.results
     : st.info.children.concat(st.info.mirror && st.withArchive ? st.info.mirror.items : []);
   const words = fromSearch ? [] : normTxt(st.q.trim()).split(/\s+/).filter(Boolean);
-  const pre = base.filter(c => sizeOk(c, st.size) && words.every(w => normTxt(c.name).includes(w)));
+  const pre = base.filter(c => (showIgnored || !isIgnored(c)) && sizeOk(c, st.size) && words.every(w => normTxt(c.name).includes(w)));
   st.counts = {all: pre.length};
   pre.forEach(c => { const k = catOf(c); st.counts[k] = (st.counts[k]||0)+1; });
   let list = pre.filter(c => st.type==='all' || catOf(c)===st.type);
@@ -1614,7 +1634,7 @@ $('#hclose').onclick = hhide;
 function visibleAnchor(rel){
   // le nœud lui-même s'il est sur la carte, sinon son dossier visible le plus proche
   let a = rel;
-  const vis = id => { const n = byId.get(id); return n && !hiddenGroups.has(n.group) && (showFiles || n.kind==='dir' || n.kind==='root'); };
+  const vis = id => { const n = byId.get(id); return n && !hiddenGroups.has(n.group) && (showFiles || n.kind==='dir' || n.kind==='root') && (showIgnored || !isIgnored(n)); };
   while (a && !vis(a)) a = a.split('/').slice(0,-1).join('/');
   return a || '/';
 }
@@ -1985,6 +2005,7 @@ function pick(r){
     if (hiddenGroups.has(n.group)){ hiddenGroups.delete(n.group); buildLegend(); }
     if (n.kind==='tag' && !showTags){ showTags = true; $('#tTags').classList.add('on'); }
     if (!showFiles && n.kind!=='dir' && n.kind!=='tag'){ showFiles=true; $('#tFiles').classList.add('on'); }
+    if (!showIgnored && isIgnored(n)){ showIgnored = true; $('#tIgnored').classList.add('on'); }
     render(); return setTimeout(()=>selectNode(id, true), 50);
   }
   let anc = id;
@@ -2002,6 +2023,8 @@ toggle('#tFiles', () => showFiles = !showFiles);
 $('#tLabels').onclick = () => { showLabels = !showLabels; $('#tLabels').classList.toggle('on'); };
 $('#tFit').onclick = () => mode==='3d' ? G3.zoomToFit(800, 40) : G.zoomToFit(600, 60);
 toggle('#tTags', () => showTags = !showTags);
+$('#tIgnored').onclick = () => { showIgnored = !showIgnored; try { localStorage.setItem('hm-ignored', showIgnored ? '1' : ''); } catch(e){}
+  $('#tIgnored').classList.toggle('on', showIgnored); render(); if (dirState) renderDirView(); };
 $('#t3d').onclick = () => setMode(mode==='3d' ? '2d' : '3d');
 $('#tRotate').onclick = () => { autoRotate = !autoRotate; $('#tRotate').classList.toggle('on', autoRotate); if (G3) G3.controls().autoRotate = autoRotate; };
 $('#tReload').onclick = async () => { const keep = selected; G && G.graphData({nodes:[],links:[]}); G3 && G3.graphData({nodes:[],links:[]}); await load(true); if (keep && byId.has(keep)) selectNode(keep, false); };
@@ -2082,6 +2105,7 @@ async function showSetup(state){
       <span>Préfixe masqué dans les noms</span><input type="text" id="sPrefix" value="${esc(cur.zone_prefix || '')}" placeholder="facultatif, ex. N_ : N_Pro s'affiche « Pro »">
       <span>Nom affiché au centre</span><input type="text" id="sTitle" value="${esc(cur.title || '')}" placeholder="nom du dossier">
       <span>Dossiers ignorés</span><input type="text" id="sIgnore" value="${esc((cur.ignore||[]).join(', '))}" placeholder="ex. _corbeille, Sauvegardes">
+      <span>Fichiers ignorés</span><input type="text" id="sIgnoreF" value="${esc((cur.ignore_files||[]).join(', '))}" placeholder="ex. AGENTS.md, STATUS.md, *.tmp — masqués, ré-affichables avec le bouton « Ignorés »">
       ${H.command ? `<span>Règles à suivre par Hermes</span><input type="text" id="sConv" value="${esc((h0.conventions||[]).join(', '))}" placeholder="fichiers .md de conventions, ex. Accueil/CONVENTIONS.md">
       <span>Dossier de travail (reclassement)</span><input type="text" id="sWork" value="${esc(h0.workdir||'')}" placeholder="dossier principal (défaut)">
       <span>Non sauvegardés avant reclassement</span><input type="text" id="sBSkip" value="${esc((h0.backup_skip||[]).join(', '))}" placeholder="ex. _gros_dossier">` : ''}
@@ -2203,7 +2227,7 @@ async function showSetup(state){
     if (boxes.length && !on.length){ $('#sMsg').textContent = 'Coche au moins un dossier de notes.'; return; }
     const autoNew = !$('#sAutoNew') || $('#sAutoNew').checked;
     const body = {root: chosen.path, include: '*', folders: autoNew ? [] : on, hidden_tops: autoNew ? off : [],
-      zone_prefix: pre(), title: $('#sTitle').value.trim(), ignore: list($('#sIgnore').value),
+      zone_prefix: pre(), title: $('#sTitle').value.trim(), ignore: list($('#sIgnore').value), ignore_files: list($('#sIgnoreF').value),
       archive: {enabled: !!a, folder: a || archName()}};
     if (H.command) body.hermes = {profile: $('#sProf').value, reclass_profile: $('#sRProf').value, conventions: list($('#sConv').value), workdir: $('#sWork').value.trim(), backup_skip: list($('#sBSkip').value)};
     $('#sGo').disabled = true; $('#sMsg').textContent = 'Enregistrement…';

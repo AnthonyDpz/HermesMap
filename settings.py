@@ -29,6 +29,7 @@ DEFAULTS = {
     "title": "",               # nom du nœud central (défaut : nom du dossier)
     "zone_prefix": "",         # préfixe retiré du nom des zones (ex. « N_ » : N_Pro -> Pro)
     "ignore": [],              # dossiers ignorés en plus (bacs de tri, sauvegardes…)
+    "ignore_files": [],        # fichiers masqués sur la carte (motifs * ?), ré-affichables avec le bouton « Ignorés »
     "archive": {
         "enabled": False,      # centraliser fichiers et binaires dans un dossier d'archivage
         "folder": "Archive",   # dossier d'archivage (1er niveau du dossier exploré)
