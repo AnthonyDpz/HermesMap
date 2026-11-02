@@ -572,6 +572,27 @@ impl App {
                     let mv = mover::Mover::new(self.clone())?;
                     j(mv.save_text(&s("path"), text, &s("base_sha"), b.get("force").and_then(|v| v.as_bool()).unwrap_or(false)))
                 }
+                "/api/organize/plan" | "/api/organize/run" | "/api/create" => {
+                    if self.root().is_none() {
+                        return Ok(jerr("aucun dossier configuré", 400));
+                    }
+                    match path {
+                        "/api/organize/plan" => {
+                            let srcs: Vec<String> = b.get("srcs").and_then(|v| v.as_array()).cloned().unwrap_or_default()
+                                .iter().filter_map(|v| v.as_str().map(String::from)).collect();
+                            j(crate::organize::Organizer::new(self.clone()).plan(&srcs, &s("dest")))
+                        }
+                        "/api/create" => j(crate::organize::Organizer::new(self.clone()).create(&s("kind"), &s("parent"), &s("name"), &s("title"), &s("desc"))),
+                        _ => {
+                            let items: Vec<Value> = b.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default().iter().map(|it| {
+                                let t = it.get("target").and_then(|v| v.as_str()).unwrap_or("");
+                                json!({"src": it.get("src").and_then(|v| v.as_str()).unwrap_or(""), "dest_dir": dirname(t), "name": basename(t)})
+                            }).collect();
+                            let mv = mover::Mover::new(self.clone())?;
+                            j(mv.run(&json!(items), true, true, &s("note"), true))
+                        }
+                    }
+                }
                 "/api/move" | "/api/move/plan" | "/api/move/undo" => {
                     let mv = mover::Mover::new(self.clone())?;
                     let items = b.get("items").cloned().unwrap_or(json!([]));
@@ -579,7 +600,7 @@ impl App {
                     match path {
                         "/api/move/plan" => j(json!({"plan": mv.plan(&items, create)})),
                         "/api/move/undo" => j(mv.undo(&s("id"))),
-                        _ => j(mv.run(&items, create, b.get("update_index").and_then(|v| v.as_bool()).unwrap_or(true), &s("note"))),
+                        _ => j(mv.run(&items, create, b.get("update_index").and_then(|v| v.as_bool()).unwrap_or(true), &s("note"), false)),
                     }
                 }
                 _ if path.starts_with("/api/hermes/") => {

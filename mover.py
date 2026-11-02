@@ -119,15 +119,13 @@ class Mover:
         return out
 
     # ------------------------------------------------------------ exécution
-    def run(self, items, create_dirs=True, update_index=True, note=""):
+    def run(self, items, create_dirs=True, update_index=True, note="", organize=False):
         plan = self.plan(items, create_dirs)
         todo = [p for p in plan if p["ok"]]
         if not todo:
             return {"ok": False, "plan": plan, "error": "rien à déplacer"}
-        jid = time.strftime("%Y-%m-%d_%H-%M-%S") + f"_{os.getpid() % 1000}"
-        jdir = JOURNAL / jid
-        (jdir / "texts").mkdir(parents=True, exist_ok=True)
-        journal = {"id": jid, "time": time.time(), "moves": [], "texts": {}, "created_dirs": [], "note": note}
+        import organize as org
+        jid, jdir, journal = org.new_journal(note)
         backups = {}
 
         def backup(rel):
@@ -148,8 +146,11 @@ class Mover:
             src, target = self.root / p["src"], self.root / p["target"]
             try:
                 if not target.parent.exists():
+                    d = p["dest_dir"]
+                    while d and not (self.root / d).exists():
+                        journal["created_dirs"].append(d)      # chaque niveau créé, pour l'annulation
+                        d = posixpath.dirname(d)
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    journal["created_dirs"].append(p["dest_dir"])
                 os.rename(src, target)
             except OSError:
                 try:
@@ -170,8 +171,14 @@ class Mover:
                                if cat.get(p["src"], {}).get("description")}
                 self._update_catalog_yaml(done, backup, report)
                 self._update_catalog_jsonl(done, backup, report, desc_by_new)
-                self._update_log(done, backup, report, note)
+                arch = settings.current.archive
+                in_arch = lambda r: bool(arch) and (r == arch or r.startswith(arch + "/"))  # noqa: E731
+                self._update_log([p for p in done if not organize or in_arch(p["src"]) or in_arch(p["target"])],
+                                 backup, report, note)
                 self._update_links(done, backup, report)
+                if organize:
+                    import organize as org
+                    org.Organizer(self.app).after_moves(done, backup, report)
             except Exception as e:  # noqa
                 report["error"] = f"mise à jour des index incomplète : {e}"
 
@@ -372,6 +379,8 @@ class Mover:
         lp = self.root / log
         if not lp.exists():
             return
+        if not done:
+            return
         backup(log)
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S") + time.strftime("%z")[:3] + ":" + time.strftime("%z")[3:]
         rows = []
@@ -428,7 +437,8 @@ class Mover:
                 href = _href(note_dir, moves[tgt], root_abs, keep_absolute=absolute)
                 if anchor:
                     href = href[:-1] + anchor + ">" if href.startswith("<") else href + anchor
-                return m.group(1) + href + m.group(3)
+                from organize import relabel
+                return relabel(m.group(1), raw, href) + href + m.group(3)
 
             new = MDLINK.sub(fix, text)
             new = IMGLINK.sub(fix, new)
@@ -493,11 +503,29 @@ class Mover:
         return {"ok": True, "id": jid, "sha": sha, "size": st.st_size, "mtime": st.st_mtime, "journal": str(jdir)}
 
     def undo(self, jid):
+        if not jid or "/" in jid or "\\" in jid or ".." in jid:
+            return {"ok": False, "error": "introuvable"}
         jdir = JOURNAL / jid
+        if not (jdir / "journal.json").is_file():
+            return {"ok": False, "error": "introuvable"}
         j = json.loads((jdir / "journal.json").read_text("utf-8"))
         if j.get("undone"):
             return {"ok": False, "error": "déjà annulé"}
-        back, skipped = [], []
+        back, skipped, restored = [], [], []
+        # 1. les textes d'abord (une note déplacée puis modifiée est restaurée à son nouvel emplacement)
+        for rel, info in j["texts"].items():
+            p = self.root / rel
+            if p.exists() and info.get("sha_after") and _sha(p) != info["sha_after"]:
+                skipped.append(rel + " (modifié depuis)")
+                continue
+            if info.get("existed"):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(jdir / "texts" / rel, p)
+                restored.append(rel)
+            elif p.exists():
+                p.unlink()
+                restored.append(rel)
+        # 2. puis les fichiers reviennent à leur place
         for m in reversed(j["moves"]):
             new, old = self.root / m["new"], self.root / m["old"]
             if new.exists() and not old.exists():
@@ -506,18 +534,6 @@ class Mover:
                 back.append(m["old"])
             else:
                 skipped.append(m["new"])
-        restored = []
-        for rel, info in j["texts"].items():
-            p = self.root / rel
-            if p.exists() and info.get("sha_after") and _sha(p) != info["sha_after"]:
-                skipped.append(rel + " (modifié depuis)")
-                continue
-            if info.get("existed"):
-                shutil.copy2(jdir / "texts" / rel, p)
-                restored.append(rel)
-            elif p.exists():
-                p.unlink()
-                restored.append(rel)
         for d in sorted(j.get("created_dirs", []), key=len, reverse=True):
             try:
                 (self.root / d).rmdir()        # seulement s'il est resté vide

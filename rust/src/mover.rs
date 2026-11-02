@@ -76,7 +76,7 @@ pub fn relpath(target: &str, start: &str) -> String {
     }
 }
 
-fn href(from_dir: &str, target: &str, absolute_root: &str, keep_absolute: bool) -> String {
+pub(crate) fn href(from_dir: &str, target: &str, absolute_root: &str, keep_absolute: bool) -> String {
     let h = if keep_absolute && !absolute_root.is_empty() {
         format!("{}/{}", absolute_root, target)
     } else {
@@ -106,13 +106,38 @@ pub struct Mover {
     sc: Arc<Scanner>,
 }
 
-struct Ctx {
-    jdir: PathBuf,
-    backups: BTreeMap<String, bool>,
+pub(crate) struct Ctx {
+    pub(crate) jdir: PathBuf,
+    pub(crate) backups: BTreeMap<String, bool>,
+}
+
+/// Nouveau dossier de journal (annulation) au nom unique.
+pub(crate) fn new_journal(note: &str) -> (String, PathBuf, Value) {
+    let stamp = format!("{}_{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"), std::process::id() % 1000);
+    let mut jid = stamp.clone();
+    let mut n = 1;
+    while journal_dir().join(&jid).exists() {
+        n += 1;
+        jid = format!("{}_{}", stamp, n);
+    }
+    let jdir = journal_dir().join(&jid);
+    let _ = fs::create_dir_all(jdir.join("texts"));
+    let j = json!({"id": jid, "time": now(), "moves": [], "texts": {}, "created_dirs": [], "note": note});
+    (jid, jdir, j)
+}
+
+/// Écrit journal.json avec l'empreinte de chaque texte sauvegardé.
+pub(crate) fn finish_journal(root: &Path, ctx: &Ctx, journal: &mut Value) {
+    let mut texts = Map::new();
+    for (rel, existed) in &ctx.backups {
+        texts.insert(rel.clone(), json!({"existed": existed, "sha_after": sha_file(&root.join(rel))}));
+    }
+    journal["texts"] = Value::Object(texts);
+    let _ = fs::write(ctx.jdir.join("journal.json"), serde_json::to_string_pretty(&journal).unwrap_or_default());
 }
 
 impl Ctx {
-    fn backup(&mut self, root: &Path, rel: &str) {
+    pub(crate) fn backup(&mut self, root: &Path, rel: &str) {
         if self.backups.contains_key(rel) {
             return;
         }
@@ -212,14 +237,12 @@ impl Mover {
         out
     }
 
-    pub fn run(&self, items: &Value, create_dirs: bool, update_index: bool, note: &str) -> Value {
+    pub fn run(&self, items: &Value, create_dirs: bool, update_index: bool, note: &str, organize: bool) -> Value {
         let mut plan = self.plan(items, create_dirs);
         if !plan.iter().any(|p| p["ok"] == json!(true)) {
             return json!({"ok": false, "plan": plan, "error": "rien à déplacer"});
         }
-        let jid = format!("{}_{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"), std::process::id() % 1000);
-        let jdir = journal_dir().join(&jid);
-        let _ = fs::create_dir_all(jdir.join("texts"));
+        let (jid, jdir, _) = new_journal(note);
         let mut ctx = Ctx { jdir: jdir.clone(), backups: BTreeMap::new() };
         let mut moves = vec![];
         let mut created_dirs: Vec<String> = vec![];
@@ -229,8 +252,12 @@ impl Mover {
             let target = self.root.join(p["target"].as_str().unwrap());
             if let Some(par) = target.parent() {
                 if !par.exists() {
+                    let mut d = p["dest_dir"].as_str().unwrap().to_string();
+                    while !d.is_empty() && !self.root.join(&d).exists() {
+                        created_dirs.push(d.clone()); // chaque niveau créé, pour l'annulation
+                        d = dirname(&d);
+                    }
                     let _ = fs::create_dir_all(par);
-                    created_dirs.push(p["dest_dir"].as_str().unwrap().to_string());
                 }
             }
             let r = fs::rename(&src, &target).or_else(|_| fs::copy(&src, &target).and_then(|_| fs::remove_file(&src)));
@@ -255,8 +282,18 @@ impl Mover {
                 .collect();
             self.update_catalog_yaml(&done, &mut ctx, &mut report);
             self.update_catalog_jsonl(&done, &mut ctx, &mut report, &desc_by_new);
-            self.update_log(&done, &mut ctx, &mut report, note);
+            let arch = self.sc.cfg.archive();
+            let in_arch = |r: &str| arch.as_ref().map(|a| r == a || r.starts_with(&format!("{}/", a))).unwrap_or(false);
+            let logged: Vec<Value> = done
+                .iter()
+                .filter(|p| !organize || in_arch(p["src"].as_str().unwrap_or("")) || in_arch(p["target"].as_str().unwrap_or("")))
+                .cloned()
+                .collect();
+            self.update_log(&logged, &mut ctx, &mut report, note);
             self.update_links(&done, &mut ctx, &mut report);
+            if organize {
+                crate::organize::Organizer::new(self.app.clone()).after_moves(&done, &mut ctx, &mut report);
+            }
         }
         let mut texts = Map::new();
         for (rel, existed) in &ctx.backups {
@@ -508,7 +545,7 @@ impl Mover {
     fn update_log(&self, done: &[Value], ctx: &mut Ctx, report: &mut Value, note: &str) {
         let (Some(log), Some(arch)) = (self.sc.cfg.archive_log(), self.sc.cfg.archive()) else { return };
         let lp = self.root.join(&log);
-        if !lp.exists() {
+        if !lp.exists() || done.is_empty() {
             return;
         }
         ctx.backup(&self.root, &log);
@@ -578,7 +615,7 @@ impl Mover {
                 if !anchor.is_empty() {
                     hr = if hr.starts_with('<') { format!("{}{}>", &hr[..hr.len() - 1], anchor) } else { format!("{}{}", hr, anchor) };
                 }
-                format!("{}{}{}", &m[1], hr, &m[3])
+                format!("{}{}{}", crate::organize::relabel(&m[1], raw, &hr), hr, &m[3])
             });
             if count > 0 {
                 ctx.backup(&self.root, &rel);
@@ -626,14 +663,7 @@ impl Mover {
         if new == old {
             return json!({"ok": true, "unchanged": true, "sha": cur_sha});
         }
-        let stamp = format!("{}_{}", chrono::Local::now().format("%Y-%m-%d_%H-%M-%S"), std::process::id() % 1000);
-        let mut jid = stamp.clone();
-        let mut n = 1;
-        while journal_dir().join(&jid).exists() {
-            n += 1;
-            jid = format!("{}_{}", stamp, n);
-        }
-        let jdir = journal_dir().join(&jid);
+        let (jid, jdir, _) = new_journal("édition");
         let dst = jdir.join("texts").join(&rel);
         if let Some(d) = dst.parent() {
             let _ = fs::create_dir_all(d);
@@ -673,6 +703,27 @@ impl Mover {
             return json!({"ok": false, "error": "déjà annulé"});
         }
         let (mut back, mut skipped, mut restored) = (vec![], vec![], vec![]);
+        // 1. les textes d'abord (une note déplacée puis modifiée est restaurée à son nouvel emplacement)
+        for (rel, info) in j["texts"].as_object().cloned().unwrap_or_default() {
+            let p = self.root.join(&rel);
+            if let Some(sa) = info.get("sha_after").and_then(|v| v.as_str()) {
+                if p.exists() && sha_file(&p).as_deref() != Some(sa) {
+                    skipped.push(format!("{} (modifié depuis)", rel));
+                    continue;
+                }
+            }
+            if info.get("existed").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if let Some(d) = p.parent() {
+                    let _ = fs::create_dir_all(d);
+                }
+                if fs::copy(jdir.join("texts").join(&rel), &p).is_ok() {
+                    restored.push(rel);
+                }
+            } else if p.exists() && fs::remove_file(&p).is_ok() {
+                restored.push(rel);
+            }
+        }
+        // 2. puis les fichiers reviennent à leur place
         for m in j["moves"].as_array().cloned().unwrap_or_default().iter().rev() {
             let (new, old) = (self.root.join(m["new"].as_str().unwrap_or("")), self.root.join(m["old"].as_str().unwrap_or("")));
             if new.exists() && !old.exists() {
@@ -685,22 +736,6 @@ impl Mover {
                 }
             }
             skipped.push(m["new"].as_str().unwrap_or("").to_string());
-        }
-        for (rel, info) in j["texts"].as_object().cloned().unwrap_or_default() {
-            let p = self.root.join(&rel);
-            if let Some(sa) = info.get("sha_after").and_then(|v| v.as_str()) {
-                if p.exists() && sha_file(&p).as_deref() != Some(sa) {
-                    skipped.push(format!("{} (modifié depuis)", rel));
-                    continue;
-                }
-            }
-            if info.get("existed").and_then(|v| v.as_bool()).unwrap_or(false) {
-                if fs::copy(jdir.join("texts").join(&rel), &p).is_ok() {
-                    restored.push(rel);
-                }
-            } else if p.exists() && fs::remove_file(&p).is_ok() {
-                restored.push(rel);
-            }
         }
         let mut dirs: Vec<String> = j["created_dirs"].as_array().cloned().unwrap_or_default().iter().filter_map(|v| v.as_str().map(String::from)).collect();
         dirs.sort_by_key(|d| std::cmp::Reverse(d.len()));

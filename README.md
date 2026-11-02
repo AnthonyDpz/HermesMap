@@ -14,6 +14,7 @@ A visual explorer for your notes folders: a mind map of folders, files and the l
 - **Search everything**, including folders the map does not draw, and optionally inside file contents.
 - **Reading panel**: rendered Markdown, image / GIF / video galleries, PDF and Office previews, SQLite tables, chat logs; secrets (`.env`, `auth.json`) are masked.
 - **Optional storage folder**: keep notes in the folders you pick and binaries in a mirrored storage tree (`Personal/trips/japan.md` ↔ `Storage/personal/trips/`); the map shows both together.
+- **Toolbox**: create a folder or a note, and file things away by drag and drop (map node, thumbnail or list row onto a folder). A note and its archived files move together to the mirrored path; links, quoted paths, catalogues, log and `GRAPH.json` / `AREA.md` / `INDEX.md` are updated, with undo.
 - **Edit text files** (`.md`, `.txt`, `.json`, `.yaml`…) right in the panel, with preview, Cmd+S, a warning if the file changed elsewhere, and undo.
 - **Move / rename** files by hand, with catalogue, log and note links updated — and undo.
 - **With Hermes installed**: “Update with Hermes” (links, tags, INDEX.md from where you are) and “Reclassify with Hermes” (analyse, rename, file away), with live activity on the map, a backup before every run, a full diff and one-click undo.
@@ -59,7 +60,7 @@ The interface text is written in French in the code and translated at display ti
 
 ## Privacy
 
-The server listens on `127.0.0.1` only, write actions require a per-launch token, and nothing is sent to the internet. Browsing is read-only; files are only changed by the actions you start (edit, Hermes update, reclassify, move), always after a backup and with undo. Settings live in `~/Library/Application Support/hermes-map/config.json`.
+The server listens on `127.0.0.1` only, write actions require a per-launch token, and nothing is sent to the internet. Browsing is read-only; files are only changed by the actions you start (edit, toolbox, Hermes update, reclassify, move), always after a backup and with undo. Settings live in `~/Library/Application Support/hermes-map/config.json`.
 
 ## Support
 
