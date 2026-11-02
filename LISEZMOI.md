@@ -102,6 +102,17 @@ Déroulement :
 
 **Profil** : si un profil Hermes porte le nom d'une zone (profil `pro` pour la zone `Pro`), il est présélectionné quand tu travailles dans cette zone ; sinon c'est le profil choisi dans les Réglages.
 
+## Boîte à outils : créer et ranger
+
+En bas à gauche, au-dessus de « Zones & tags ».
+
+- **＋ Dossier** et **＋ Note** créent un dossier ou une note `.md` dans le dossier ouvert. La note s'ouvre directement dans l'éditeur.
+- **Ranger par glisser-déposer** : glisse un nœud de la carte, une vignette ou une ligne du panneau sur un dossier (nœud de la carte, ligne de dossier ou fil d'Ariane). Une fenêtre liste tout ce qui va bouger, une case par élément ; décoche ce qui doit rester en place.
+- Avec un dossier d'archivage, la règle notes / fichiers s'applique toute seule : la note va dans le dossier de notes, ses fichiers dans l'archive, au **chemin miroir**, en gardant leur structure (`Archive/hobby/inspiration/x/x.jpg` → `Archive/hobby/Coloriage/x/x.jpg`). Glisser une image emmène la note qui la décrit, et inversement. Un fichier aussi cité par une autre note est laissé en place par défaut.
+- Tout est tenu à jour : liens dans la note déplacée et dans les notes qui la citent, chemins cités en clair, `catalog.yaml`, `CATALOG.jsonl`, `LOG.md` de l'archive, et, s'ils existent dans le dossier de premier niveau, `GRAPH.json`, `AREA.md` et le `INDEX.md` du dossier. Un dossier laissé vide est retiré. Le dossier miroir n'est créé qu'au premier fichier rangé.
+- Tout est sauvegardé avant, et **↶ Annuler** remet tout comme avant.
+- Déplacer un dossier entier n'est pas encore possible.
+
 ## Modifier une note
 
 Les fichiers texte (`.md`, `.txt`, `.json`, `.yaml`, `.csv`…) s'ouvrent en lecture. Le bouton **✎ Modifier**, en haut du panneau, les ouvre dans un éditeur :
@@ -146,7 +157,7 @@ python3 hermes_map.py --no-hermes
 
 - Le serveur n'écoute que sur ta machine (`127.0.0.1`). Les actions qui écrivent sont protégées par un jeton secret propre à chaque lancement : un autre site ouvert dans ton navigateur ne peut pas les déclencher.
 - L'app n'envoie rien sur Internet (toutes les bibliothèques sont incluses). Quand tu lances Hermes, c'est lui qui contacte le modèle configuré dans ses réglages.
-- L'exploration est en lecture seule. Seules quatre actions écrivent, toujours à ta demande, après sauvegarde et avec annulation possible : **Modifier** une note, **Mettre à jour avec Hermes**, **Reclasser avec Hermes** et **Déplacer / renommer**. Activer l'archivage crée le dossier d'archivage s'il n'existe pas.
+- L'exploration est en lecture seule. Seules ces actions écrivent, toujours à ta demande, après sauvegarde et avec annulation possible : **Modifier** une note, la **Boîte à outils** (créer, ranger), **Mettre à jour avec Hermes**, **Reclasser avec Hermes** et **Déplacer / renommer**. Activer l'archivage crée le dossier d'archivage s'il n'existe pas.
 - Les miniatures et vidéos converties sont en cache dans `~/Library/Caches/hermes-map` ; tu peux supprimer ce dossier à tout moment.
 
 ## Soutenir le projet

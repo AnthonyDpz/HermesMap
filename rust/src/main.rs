@@ -16,6 +16,7 @@ mod logfile;
 mod macos;
 mod media;
 mod mover;
+mod organize;
 mod prompts;
 mod scan;
 mod util;

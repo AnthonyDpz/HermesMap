@@ -37,6 +37,7 @@ sys.path.insert(0, str(APP_DIR))
 from hermes_runner import Runner  # noqa: E402
 import media_tools  # noqa: E402
 import mover  # noqa: E402
+import organize  # noqa: E402
 import settings  # noqa: E402
 import i18n  # noqa: E402
 from hermes_runner import find_hermes  # noqa: E402
@@ -1196,6 +1197,20 @@ def make_handler(app: App):
                     self.send_json({"ok": True})
                     threading.Timer(0.3, lambda: os._exit(0)).start()
                     return
+                if u.path in ("/api/organize/plan", "/api/organize/run", "/api/create"):
+                    n = int(self.headers.get("Content-Length") or 0)
+                    body = json.loads(self.rfile.read(n) or b"{}") if n else {}
+                    if not app.root:
+                        return self.send_json({"error": "aucun dossier configuré"}, 400)
+                    org = organize.Organizer(app)
+                    if u.path == "/api/organize/plan":
+                        return self.send_json(org.plan(body.get("srcs") or [], body.get("dest", "")))
+                    if u.path == "/api/create":
+                        return self.send_json(org.create(body.get("kind", ""), body.get("parent", ""), body.get("name", ""),
+                                                         body.get("title", ""), body.get("desc", "")))
+                    items = [{"src": it.get("src", ""), "dest_dir": posixpath.dirname(it.get("target", "")),
+                              "name": posixpath.basename(it.get("target", ""))} for it in body.get("items") or []]
+                    return self.send_json(mover.Mover(app).run(items, True, True, body.get("note", ""), organize=True))
                 if u.path in ("/api/move", "/api/move/plan", "/api/move/undo"):
                     n = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(n) or b"{}") if n else {}

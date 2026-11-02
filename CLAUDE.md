@@ -17,3 +17,4 @@ Historique :
 - v0.1101 : numéro de version affiché à côté du nom de l'app — mineur
 - v0.1102 : build_app.sh — correctif de signature (attributs iCloud) et option --rust — mineur
 - v0.1202 : modification des fichiers texte dans le panneau (✎ Modifier, aperçu, Cmd+S, conflit, annulation) — majeur
+- v0.1302 : boîte à outils (＋ Dossier, ＋ Note) et rangement par glisser-déposer note ↔ miroir, index tenus à jour, annulation — majeur

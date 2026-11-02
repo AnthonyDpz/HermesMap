@@ -71,6 +71,39 @@ main{position:relative;display:flex;min-height:0}
 #legend .dot{width:10px;height:10px;border-radius:50%}
 #legend .count{margin-left:auto;color:var(--muted)}
 #legend h4{margin:2px 4px 6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+#leftdock{position:absolute;left:12px;bottom:12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-height:calc(100% - 24px);z-index:3}
+#leftdock #legend{position:relative;left:auto;bottom:auto;max-height:none;min-height:0;flex:0 1 auto}
+#toolbox{position:relative;width:250px;max-width:260px;background:rgba(18,21,29,.88);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;backdrop-filter:blur(6px);flex:0 0 auto}
+#toolbox.collapsed{width:auto;padding:4px}
+#toolbox .lcol{position:absolute;top:6px;right:6px;padding:1px 7px;font-size:11px}
+#toolbox.collapsed .lcol{position:static}
+#toolbox h4{margin:2px 4px 6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+#toolbox .tdest{padding:0 4px 6px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#toolbox .tdest b{color:var(--text);font-weight:600}
+#toolbox .tbtns{display:flex;gap:6px;padding:0 4px 6px}
+#toolbox .tbtns .tbtn{flex:1;padding:5px 8px;font-size:12px}
+#toolbox .tbtn:disabled{opacity:.4;cursor:default}
+#toolbox .tform{display:flex;flex-direction:column;gap:5px;padding:2px 4px 6px}
+#toolbox .tform input{width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;outline:none}
+#toolbox .tform input:focus{border-color:var(--accent2)}
+#toolbox .tform .row2{display:flex;gap:6px;justify-content:flex-end}
+#toolbox .tform .tbtn{padding:4px 9px;font-size:12px}
+#toolbox .tform .tbtn.primary{background:var(--accent);color:#1b1206;border-color:var(--accent);font-weight:600}
+#toolbox .tform small{color:var(--muted);font-size:10.5px}
+#toolbox .tmsg{padding:4px;font-size:11.5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#toolbox .tmsg .tbtn{padding:2px 7px;font-size:11px}
+#toolbox .tmsg .err{color:var(--danger)}
+#toolbox .hint2{padding:2px 4px 0;font-size:10.5px;color:var(--muted)}
+.droptgt{outline:2px dashed var(--accent)!important;outline-offset:-2px;background:rgba(245,184,75,.08)!important}
+#hmodal .orow{display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer}
+#hmodal .orow.off{opacity:.55;cursor:default}
+#hmodal .orow input{margin-top:3px}
+#hmodal .orow .nm{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+#hmodal .orow .nm b{font-weight:600}
+#hmodal .orow small{color:var(--muted);font-size:11.5px;word-break:break-word}
+#hmodal .orow small.warnl{color:var(--accent)}
+#hmodal .orow small.err{color:var(--danger)}
+#hmodal .orow .tagk{font-size:10.5px;border:1px solid var(--line);border-radius:10px;padding:0 6px;margin-left:6px;color:var(--accent2)}
 #stats{position:absolute;right:12px;bottom:12px;font-size:11.5px;color:var(--muted);background:rgba(18,21,29,.8);padding:5px 9px;border-radius:7px;border:1px solid var(--line)}
 #hint{position:absolute;left:50%;top:14px;transform:translateX(-50%);font-size:12px;color:var(--muted);background:rgba(18,21,29,.85);padding:6px 12px;border-radius:20px;border:1px solid var(--line);pointer-events:none;transition:opacity .6s}
 #live{position:absolute;right:12px;top:12px;width:300px;background:rgba(18,21,29,.92);border:1px solid rgba(245,184,75,.35);border-radius:12px;padding:10px 12px;font-size:12.5px;backdrop-filter:blur(6px);box-shadow:0 10px 30px rgba(0,0,0,.4);z-index:4}
@@ -348,7 +381,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 <div id="app">
   <header>
     <!-- Version de l'app : changement majeur (fonctionnalité ou correctif important) +0.01, mineur +0.0001 -->
-    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1202</span> <small id="rootPath"></small></div>
+    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1302</span> <small id="rootPath"></small></div>
     <div class="search">
       <span class="ico">⌕</span>
       <input id="q" placeholder="Rechercher partout (noms, dossiers, tags)…  ( / )" autocomplete="off">
@@ -376,7 +409,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
       <div id="labels3d" style="display:none"></div>
       <div id="loading">Analyse des dossiers…</div>
       <div id="hint">Clic sur un nœud pour lire son contenu · molette pour zoomer · glisser pour déplacer</div>
-      <div id="legend"></div>
+      <div id="leftdock"><div id="toolbox"></div><div id="legend"></div></div>
       <div id="stats"></div>
       <div id="live" style="display:none"></div>
     </div>
@@ -680,7 +713,15 @@ function render(){
       .onNodeHover(n => { hoverNode = n||null; el.style.cursor = n ? 'pointer':'default'; showTip(n); })
       .onNodeClick(n => selectNode(n.id, false))
       .onBackgroundClick(() => { clearHL(); })
-      .onNodeDragEnd(n => { n.fx = n.x; n.fy = n.y; })
+      .onNodeDrag((n, tr) => {
+        if (!dragOrig || dragOrig.id !== n.id) dragOrig = {id: n.id, x: n.x - ((tr && tr.x) || 0), y: n.y - ((tr && tr.y) || 0)};
+        dropTarget = canOrganize(n) ? dirNodeAt(n.x, n.y, n) : null;
+      })
+      .onNodeDragEnd(n => {
+        const t = dropTarget, o = dragOrig; dropTarget = null; dragOrig = null;
+        if (t && o && canOrganize(n)){ n.x = o.x; n.y = o.y; n.fx = o.x; n.fy = o.y; openOrganize([n.id], t.id); return; }
+        n.fx = n.x; n.fy = n.y;
+      })
       .cooldownTicks(300)
       .warmupTicks(40);
     G.d3Force('charge').strength(n => n.kind==='root' ? -600 : n.kind==='dir' ? -140 : n.kind==='tag' ? -120 : -45);
@@ -718,6 +759,7 @@ function drawNode(n, ctx, scale){
     }
   }
   if (n.skill){ ctx.lineWidth = 2/scale; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.arc(n.x,n.y,r+2.5/scale,0,2*Math.PI); ctx.stroke(); }
+  if (n === dropTarget){ ctx.globalAlpha = 1; ctx.setLineDash([4/scale, 3/scale]); ctx.lineWidth = 2.5/scale; ctx.strokeStyle = '#f5b84b'; ctx.beginPath(); ctx.arc(n.x, n.y, r + 6/scale, 0, 2*Math.PI); ctx.stroke(); ctx.setLineDash([]); }
   const act = activity.get(n.id);
   if (act){
     const ph = (performance.now()/1000 * 2.2) % 1;              // onde qui s'élargit
@@ -860,6 +902,7 @@ function tagGroup(title, list, limit){
     `<span class="tagchip ${t.auto?'auto':''} ${selected===t.id?'on':''}" data-id="${esc(t.id)}" title="${t.auto ? T('Présent dans {0}', esc((t.zones||[]).map(zoneName).join(', '))) : 'Tag écrit dans tes notes'}">${esc(t.name)}<small>${t.count}</small></span>`).join('') + '</div>';
 }
 function buildLegend(){
+  buildTools();
   const counts = {};
   data.nodes.forEach(n => { if (n.kind!=='root' && n.kind!=='tag') counts[n.group]=(counts[n.group]||0)+1; });
   const groups = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
@@ -901,7 +944,7 @@ function buildLegend(){
 }
 
 function clearHL(){ selected=null; hl.clear(); hlLinks.clear(); G && G.nodeColor(G.nodeColor()); refreshStyles(); buildLegendSel(); }
-function buildLegendSel(){ document.querySelectorAll('#legend .tagchip').forEach(c => c.classList.toggle('on', (c.dataset.id||c.dataset.zone)===selected)); }
+function buildLegendSel(){ buildTools(); document.querySelectorAll('#legend .tagchip').forEach(c => c.classList.toggle('on', (c.dataset.id||c.dataset.zone)===selected)); }
 
 function highlight(id){
   hl = new Set([id, ...(neighbors.get(id)||[])]);
@@ -972,7 +1015,7 @@ async function openPanel(path, opts={}){
   $('#crumbs').innerHTML = `<a data-p="/">☤ ${esc(data.title)}</a>` + parts.map((p,i) => {
     acc += (i?'/':'') + p; return ` / <a data-p="${esc(acc)}">${esc(p)}</a>`; }).join('');
   if (k0==='tag') $('#crumbs').innerHTML += ' / Tags' + (node.auto ? ' automatiques' : '');
-  $('#crumbs').querySelectorAll('a').forEach(a => a.onclick = () => selectNode(a.dataset.p));
+  $('#crumbs').querySelectorAll('a').forEach(a => { a.onclick = () => selectNode(a.dataset.p); if (a.dataset.p && a.dataset.p !== '/') wireDropTarget(a, a.dataset.p); });
   $('#picon').textContent = iconFor({...node, kind:info.kind});
   $('#ptitle').textContent = info.path ? info.name : (data.title || 'Racine');
   const chips = [];
@@ -1043,6 +1086,7 @@ async function openPanel(path, opts={}){
   }
   if (k === 'dir' || k === 'tag'){ wireFilters(); renderDirView(); }
   body.scrollTop = (opts.restore && opts.restore.scroll) || 0;
+  buildTools();
 }
 
 // ---------------- Édition d'un fichier texte ----------------
@@ -1157,6 +1201,192 @@ function wireEditSaved(body){
   };
 }
 
+// ---------------- Boîte à outils : créer un dossier / une note, ranger par glisser-déposer ----------------
+let toolsOpen = true; try { toolsOpen = localStorage.getItem('hm-tools') !== '0'; } catch(e){}
+let toolsForm = null, toolsMsg = null, dropTarget = null, dragOrig = null;
+const isArchivePath = p => !!CFG.archive_dir && (p === CFG.archive_dir || p.startsWith(CFG.archive_dir + '/'));
+const baseName = p => (p || '').split('/').pop();
+const dirName = p => (p || '').split('/').slice(0, -1).join('/');
+function shortPath(p){
+  const parts = (p || '').split('/').filter(Boolean);
+  if (!parts.length) return data ? data.title : '';
+  const first = isArchivePath(p) ? parts[0] : zoneName(parts[0]);
+  const rest = parts.slice(1);
+  return [first].concat(rest.length > 3 ? ['…'].concat(rest.slice(-3)) : rest).join(' / ');
+}
+function kindFromName(n){
+  const e = (n.split('.').pop() || '').toLowerCase();
+  if (['md','markdown'].includes(e)) return 'markdown';
+  if (['jpg','jpeg','png','gif','webp','heic','bmp','tif','tiff','avif','svg'].includes(e)) return 'image';
+  if (['mp4','mov','m4v','webm','avi','mkv'].includes(e)) return 'video';
+  if (['mp3','wav','m4a','flac','ogg','aac'].includes(e)) return 'audio';
+  if (e === 'pdf') return 'pdf';
+  if (['json','jsonl'].includes(e)) return 'json';
+  if (['doc','docx','xls','xlsx','ppt','pptx','pages','numbers','key','odt'].includes(e)) return 'office';
+  return ['txt','csv','yaml','yml'].includes(e) ? 'text' : 'binary';
+}
+// dossier visé par « ＋ Dossier » / « ＋ Note » : celui ouvert dans le panneau, sinon le dossier du fichier ouvert
+function toolsFolder(){
+  let p = panelPath;
+  if (p == null) p = selected && selected !== '/' ? selected : null;
+  if (!p || p === '/' || p.startsWith('#')) return null;
+  const n = byId.get(p);
+  const kind = panelInfo && panelInfo.path === p ? panelInfo.kind : (n ? n.kind : null);
+  return kind === 'dir' ? p : (dirName(p) || null);
+}
+function buildTools(){
+  const el = $('#toolbox'); if (!el) return;
+  el.classList.toggle('collapsed', !toolsOpen);
+  if (!toolsOpen){
+    el.innerHTML = `<button class="tbtn lcol" id="tbcol" title="Créer un dossier ou une note, ranger par glisser-déposer">▸ Boîte à outils</button>`;
+    $('#tbcol').onclick = () => { toolsOpen = true; try { localStorage.setItem('hm-tools', '1'); } catch(e){} buildTools(); };
+    return;
+  }
+  const f = toolsFolder();
+  const noteOk = f && !isArchivePath(f);
+  el.innerHTML = `<button class="tbtn lcol" id="tbcol" title="Replier">▾</button><h4>Boîte à outils</h4>
+    <div class="tdest">${f ? `Dans <b title="${esc(f)}">${esc(shortPath(f))}</b>` : `Ouvre d'abord un dossier sur la carte.`}</div>
+    <div class="tbtns"><button class="tbtn" data-k="dir" ${f ? '' : 'disabled'} title="Nouveau dossier dans le dossier ouvert">＋ Dossier</button><button class="tbtn" data-k="note" ${noteOk ? '' : 'disabled'} title="${f && !noteOk ? 'Les notes vont dans le cerveau, pas dans l’archive' : 'Nouvelle note .md dans le dossier ouvert'}">＋ Note</button></div>
+    ${toolsForm ? `<div class="tform">
+      <input id="tfName" placeholder="${toolsForm.kind === 'dir' ? 'Nom du dossier' : 'Nom de la note'}" autocomplete="off" value="${esc(toolsForm.name || '')}">
+      <input id="tfDesc" placeholder="Description (facultatif)" autocomplete="off" value="${esc(toolsForm.desc || '')}">
+      <small id="tfPrev"></small>
+      <div class="row2"><button class="tbtn" id="tfCancel">Annuler</button><button class="tbtn primary" id="tfGo">Créer</button></div></div>` : ''}
+    ${toolsMsg ? `<div class="tmsg">${toolsMsg.html}</div>` : ''}
+    <div class="hint2">Glisse un nœud ou une vignette sur un dossier pour le ranger.</div>`;
+  $('#tbcol').onclick = () => { toolsOpen = false; try { localStorage.setItem('hm-tools', '0'); } catch(e){} buildTools(); };
+  el.querySelectorAll('.tbtns [data-k]').forEach(b => b.onclick = () => { toolsForm = {kind: b.dataset.k, parent: f}; toolsMsg = null; buildTools(); $('#tfName').focus(); });
+  if (toolsForm){
+    const prev = () => { const n = toolsName(); $('#tfPrev').textContent = n ? '→ ' + shortPath(toolsForm.parent) + ' / ' + n + (toolsForm.kind === 'note' && !/\.[a-z0-9]+$/i.test(n) ? '.md' : '') : ''; };
+    $('#tfName').oninput = () => { toolsForm.name = $('#tfName').value; prev(); };
+    $('#tfDesc').oninput = () => { toolsForm.desc = $('#tfDesc').value; };
+    prev();
+    el.querySelectorAll('.tform input').forEach(i => i.onkeydown = e => {
+      if (e.key === 'Enter'){ e.preventDefault(); toolsCreate(); }
+      else if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); toolsForm = null; buildTools(); }
+    });
+    $('#tfCancel').onclick = () => { toolsForm = null; buildTools(); };
+    $('#tfGo').onclick = toolsCreate;
+  }
+  const u = $('#tbUndo');
+  u && (u.onclick = async () => {
+    const id = toolsMsg && toolsMsg.id; if (!id) return;
+    const r = await hpost('/api/move/undo', {id});
+    toolsMsg = {html: r.ok ? '↶ Annulé.' : `<span class="err">${esc(r.error || 'annulation impossible')}</span>`};
+    buildTools(); afterFsChange();
+  });
+}
+const toolsName = () => (($('#tfName') && $('#tfName').value) || '').trim().replace(/\s+/g, '-');
+async function toolsCreate(){
+  if (!toolsForm) return;
+  const title = $('#tfName').value.trim(), name = toolsName();
+  if (!name){ $('#tfName').focus(); return; }
+  const kind = toolsForm.kind, parent = toolsForm.parent;
+  const r = await hpost('/api/create', {kind, parent, name, title, desc: $('#tfDesc').value.trim()}).catch(() => ({error: T("Hermes Map ne répond plus : relance l'app.")}));
+  if (!r.ok){ toolsMsg = {html: `<span class="err">${esc(r.error || '?')}</span>`}; buildTools(); return; }
+  toolsForm = null;
+  const extra = (r.report && r.report.notes || []).length ? ` · ${T('{0} index mis à jour', r.report.notes.length)}` : '';
+  toolsMsg = {id: r.id, html: `✓ <span>${T('Créé :')} <b>${esc(baseName(r.path))}</b>${esc(extra)}</span><button class="tbtn" id="tbUndo" title="Supprimer ce qui vient d'être créé">↶ Annuler</button>`};
+  buildTools();
+  await sleep(700); await load(true);
+  if (kind === 'note'){ await openPanel(r.path); if (panelInfo && panelInfo.editable) editOpen(); }
+  else if (byId.has(r.path)) selectNode(r.path); else openPanel(r.path);
+}
+
+// glisser-déposer
+const canOrganize = n => n && typeof n.id === 'string' && !['dir','root','tag','more'].includes(n.kind) && !n.id.startsWith('#');
+function dirNodeAt(x, y, except, extra=6){
+  if (!G) return null;
+  const z = G.zoom() || 1;
+  let best = null, bd = Infinity;
+  for (const n of G.graphData().nodes){
+    if (n.kind !== 'dir' || n === except || n.x === undefined) continue;
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < nodeR(n) + extra / z && d < bd){ best = n; bd = d; }
+  }
+  return best;
+}
+const HM_DRAG = 'application/x-hm-paths';
+const dragPaths = e => { try { return JSON.parse(e.dataTransfer.getData(HM_DRAG) || '[]'); } catch(err){ return []; } };
+const isHmDrag = e => e.dataTransfer && [...e.dataTransfer.types].includes(HM_DRAG);
+function wireDropTarget(el, path){
+  el.addEventListener('dragover', e => { if (!isHmDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('droptgt'); });
+  el.addEventListener('dragleave', () => el.classList.remove('droptgt'));
+  el.addEventListener('drop', e => { if (!isHmDrag(e)) return; e.preventDefault(); e.stopPropagation(); el.classList.remove('droptgt'); const ps = dragPaths(e); if (ps.length) openOrganize(ps, path); });
+}
+function wirePanelDrag(st){
+  document.querySelectorAll('#dirList .item[data-p], #dirMedia figure[data-p]').forEach(it => {
+    if (it.dataset.dir === '1'){ wireDropTarget(it, it.dataset.p); return; }
+    it.draggable = true;
+    it.ondragstart = e => {
+      const p = it.dataset.p;
+      const ps = st.sel.has(p) && st.sel.size > 1 ? [...st.sel] : [p];
+      e.dataTransfer.setData(HM_DRAG, JSON.stringify(ps));
+      e.dataTransfer.setData('text/plain', ps.join('\n'));
+      e.dataTransfer.effectAllowed = 'move';
+    };
+  });
+}
+(() => {   // dépôt sur la carte (2D)
+  const el = $('#graph');
+  const at = e => { const b = el.getBoundingClientRect(); const c = G.screen2GraphCoords(e.clientX - b.left, e.clientY - b.top); return dirNodeAt(c.x, c.y, null, 14); };
+  const end = () => { dropTarget = null; G && G.autoPauseRedraw(!liveOn); };
+  el.addEventListener('dragover', e => {
+    if (!isHmDrag(e) || !G || mode !== '2d') return;
+    e.preventDefault(); G.autoPauseRedraw(false);
+    dropTarget = at(e); e.dataTransfer.dropEffect = dropTarget ? 'move' : 'none';
+  });
+  el.addEventListener('dragleave', end);
+  el.addEventListener('drop', e => {
+    if (!isHmDrag(e) || !G) return;
+    e.preventDefault(); const t = at(e); end();
+    const ps = dragPaths(e); if (t && ps.length) openOrganize(ps, t.id);
+  });
+  document.addEventListener('dragend', end);
+})();
+
+// la fenêtre « Ranger » : tout ce qui va bouger, une case par élément
+async function openOrganize(paths, dest){
+  if (!dest || dest === '/') return;
+  if (!leaveEditOk()) return;
+  hshow();
+  $('#htitle').textContent = T('Ranger dans « {0} »', shortPath(dest));
+  $('#hstate').style.display = 'none';
+  $('#hbody').innerHTML = '<div class="empty">Préparation…</div>'; $('#hfoot').innerHTML = '';
+  const pl = await hpost('/api/organize/plan', {srcs: paths, dest}).catch(() => ({error: T("Hermes Map ne répond plus : relance l'app.")}));
+  const close = `<span class="sp"></span><button class="tbtn primary" id="orgClose">Fermer</button>`;
+  if (!pl.ok){ $('#hbody').innerHTML = `<div class="warn">${esc(pl.error || '?')}</div>`; $('#hfoot').innerHTML = close; $('#orgClose').onclick = hhide; return; }
+  const items = pl.groups.flatMap(g => g.items);
+  let i = 0;
+  const row = it => {
+    const idx = i++;
+    return `<label class="orow ${it.ok ? '' : 'off'}"><input type="checkbox" data-i="${idx}" ${it.checked ? 'checked' : ''} ${it.ok ? '' : 'disabled'}>
+      <span class="ic">${iconFor({kind: kindFromName(it.src)})}</span>
+      <span class="nm"><span><b>${esc(baseName(it.src))}</b>${it.dragged ? `<span class="tagk">${T('glissé')}</span>` : ''}${it.kind === 'note' ? `<span class="tagk">${T('note')}</span>` : ''}</span>
+        <small>${esc(shortPath(dirName(it.src)))} → <b>${esc(shortPath(dirName(it.target)))}</b>${baseName(it.target) !== baseName(it.src) ? ' / ' + esc(baseName(it.target)) : ''}</small>
+        ${it.shared ? `<small class="warnl">${T('Aussi lié par {0} : laissé en place par défaut, pour ne pas casser ce lien.', it.shared.map(baseName).join(', '))}</small>` : ''}
+        ${it.reason ? `<small class="warnl">${T('Rangé hors du miroir de la note : laissé en place par défaut.')}</small>` : ''}
+        ${it.error ? `<small class="err">${esc(it.error)}</small>` : ''}</span></label>`;
+  };
+  const hasArch = items.some(it => isArchivePath(it.src) || isArchivePath(it.target));
+  const idx = pl.maps.concat(hasArch && CFG.archive_dir ? [CFG.archive_dir + '/CATALOG.jsonl', CFG.archive_dir + '/LOG.md'] : []);
+  $('#hbody').innerHTML = pl.groups.map(g => `<div class="section">${g.note ? T('Note et fichiers liés') : T('Fichier')}</div>` + g.items.map(row).join('')).join('')
+    + (pl.errors.length ? `<div class="section">${T('Pas déplacé')}</div>` + pl.errors.map(e => `<div class="warn">${esc(baseName(e.src))} : ${esc(e.error)}</div>`).join('') : '')
+    + `<div class="note" style="margin-top:10px">${pl.new_dirs.length ? T('Dossiers créés : {0}', pl.new_dirs.map(shortPath).join(' · ')) + '<br>' : ''}${T('Mis à jour : {0}', idx.map(shortPath).concat([T('liens des notes'), T('chemins cités')]).join(' · '))}</div>`;
+  const count = () => $('#hbody').querySelectorAll('input[data-i]:checked').length;
+  $('#hfoot').innerHTML = `<span class="note">${T('Sauvegarde avant, ↶ annulation possible à la fin.')}</span><span class="sp"></span><button class="tbtn" id="orgCancel">Annuler</button><button class="tbtn primary" id="orgGo"></button>`;
+  const upd = () => { const n = count(); $('#orgGo').textContent = T('Ranger ({0})', n); $('#orgGo').disabled = !n; };
+  $('#hbody').querySelectorAll('input[data-i]').forEach(c => c.onchange = upd); upd();
+  $('#orgCancel').onclick = hhide;
+  $('#orgGo').onclick = async () => {
+    const sel = [...$('#hbody').querySelectorAll('input[data-i]:checked')].map(c => items[+c.dataset.i]).map(it => ({src: it.src, target: it.target}));
+    if (!sel.length) return;
+    $('#orgGo').disabled = true; $('#orgGo').textContent = T('Rangement…');
+    const r = await hpost('/api/organize/run', {items: sel}).catch(() => ({ok: false, error: T("Hermes Map ne répond plus : relance l'app.")}));
+    moveDoneView(r);
+  };
+}
+
 function panelBack(){
   const prev = panelStack.pop();
   if (!prev) return;
@@ -1198,7 +1428,7 @@ function dirFiltersHtml(info){
       <label title="Décoché : seulement les éléments directement dans ce dossier"><input type="checkbox" id="fdeep"> Sous-dossiers inclus</label>
       <label title="Cherche aussi le texte à l'intérieur des notes (.md, .txt, .json…) — plus lent"><input type="checkbox" id="fcontent"> Dans le contenu des fichiers</label>
       <span class="fstatus" id="fstatus"></span></div>`}
-    ${info.mirror ? `<div class="row mirror"><label title="Les fichiers de ce dossier sont rangés dans l'archive miroir"><input type="checkbox" id="farch"> 🗄 Inclure l'archive miroir</label>
+    ${info.mirror ? `<div class="row mirror"><label title="Les fichiers de ce dossier sont rangés dans l'archive miroir"><input type="checkbox" id="farch"> 🗄️ Inclure l'archive miroir</label>
       <a class="mlink" data-open="${esc(info.mirror.path)}">${esc(info.mirror.path)}</a><span class="fstatus">${info.mirror.total} élément(s)${info.mirror.described ? ` · ${info.mirror.described} décrit(s) dans les catalogues` : ''}</span></div>` : ''}
     ${info.brain ? `<div class="row mirror"><span>📝 Notes liées à ce dossier :</span><a class="mlink" data-open="${esc(info.brain)}">${esc(info.brain)}</a></div>` : ''}
     <div class="row" id="fcats"></div>
@@ -1349,7 +1579,7 @@ function renderDirView(){
         ? `<div class="ph" title="Dans iCloud : téléchargé seulement à l'ouverture">☁️</div>`
         : `<img class="thumb" data-src="${anim ? raw(c.path) : thumbUrl(c.path)}" data-raw="${raw(c.path)}" data-vid="${vid?1:''}" alt="">`;
       const tip = descText(c);
-      return `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-vid="${vid?1:''}" data-cloud="${c.cloud?1:''}" title="${esc((tip ? tip + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${inner}${vid?`<span class="play">▶</span><span class="badge">${WEBVIDEO_RE.test(c.name) ? 'vidéo' : 'vidéo ' + esc(extOf(c))}</span>`:''}${c.archive ? '<span class="badge arch" title="Stocké dans l\'archive miroir">🗄</span>' : ''}${isAnimated(c) && !vid ? '<span class="badge gifb">GIF</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.series ? c.desc.series + ' · ' : '')}${esc(c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`;
+      return `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-vid="${vid?1:''}" data-cloud="${c.cloud?1:''}" title="${esc((tip ? tip + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${inner}${vid?`<span class="play">▶</span><span class="badge">${WEBVIDEO_RE.test(c.name) ? 'vidéo' : 'vidéo ' + esc(extOf(c))}</span>`:''}${c.archive ? '<span class="badge arch" title="Stocké dans l\'archive miroir">🗄️</span>' : ''}${isAnimated(c) && !vid ? '<span class="badge gifb">GIF</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.series ? c.desc.series + ' · ' : '')}${esc(c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`;
     }).join('') + '</div>';
     if (media.length > shown.length) h += `<button class="tbtn more-btn" id="moreMedia">Afficher ${Math.min(120, media.length-shown.length)} de plus (${media.length-shown.length} restants)</button>`;
   }
@@ -1358,14 +1588,14 @@ function renderDirView(){
   if (docs.length && st.type !== 'dir'){
     const shownD = docs.slice(0, st.docLimit || 60);
     h += `<div class="section">Documents (${docs.length}${deepNote}) · clic = lire ici, sans quitter le dossier</div><div class="gallery docs">` + shownD.map(c =>
-      `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-doc="1" title="${esc((descText(c) ? descText(c) + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${c.cloud ? `<div class="ph">☁️</div>` : `<img class="thumb" data-src="${thumbUrl(c.path)}" data-raw="" alt="">`}<span class="badge ext">${esc(extOf(c))}</span>${c.archive ? '<span class="badge arch">🗄</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.title ? c.desc.title : c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`).join('') + '</div>';
+      `<figure class="${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-doc="1" title="${esc((descText(c) ? descText(c) + '\n' : '') + c.path)}"><span class="selbox" data-sel="${esc(c.path)}" title="Sélectionner">✓</span>${c.cloud ? `<div class="ph">☁️</div>` : `<img class="thumb" data-src="${thumbUrl(c.path)}" data-raw="" alt="">`}<span class="badge ext">${esc(extOf(c))}</span>${c.archive ? '<span class="badge arch">🗄️</span>' : ''}<figcaption><span>${esc(c.desc && c.desc.title ? c.desc.title : c.name)}</span><span>${fmtSize(c.size)}</span></figcaption></figure>`).join('') + '</div>';
     if (docs.length > shownD.length) h += `<button class="tbtn more-btn" id="moreDocs">Afficher ${Math.min(60, docs.length-shownD.length)} de plus (${docs.length-shownD.length} restants)</button>`;
   }
   $('#dirMedia').innerHTML = h;
   // liste
   const shownList = list.slice(0, st.listLimit);
   $('#dirList').innerHTML = `<div class="section">Contenu</div><div class="list">` + (shownList.length ? shownList.map(c =>
-    `<div class="item ${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-media="${isViewable(c)?1:''}">${c.kind!=='dir' ? `<input type="checkbox" class="isel" data-sel="${esc(c.path)}" ${st.sel.has(c.path) ? 'checked' : ''} title="Sélectionner">` : '<span class="isel-sp"></span>'}<span class="ic">${iconFor(byId.get(c.path)||c)}</span><span class="nm">${c.archive ? '<span title="Archive miroir">🗄 </span>' : ''}${hlText(c.name, st.q)}${c.where!=null && (st.results!=null || st.info.kind==='tag' || c.archive) ? ` <small class="where">${esc((w => w === '.' ? '' : w)(c.archive && st.info.mirror ? relWhere(c.where, st.info.mirror.path) : relWhere(c.where, st.info.path)))}</small>` : ''}${c.snippet ? `<small class="snip">…${hlText(c.snippet, st.q)}…</small>` : ''}${descText(c) ? `<small class="snip">${esc(descText(c).slice(0, 220))}</small>` : ''}</span><span class="sz">${c.cloud?'☁️ ':''}${c.kind==='dir'?'':fmtSize(c.size)}</span></div>`).join('')
+    `<div class="item ${st.sel.has(c.path) ? 'sel' : ''}" data-p="${esc(c.path)}" data-media="${isViewable(c)?1:''}" data-dir="${c.kind==='dir'?1:''}">${c.kind!=='dir' ? `<input type="checkbox" class="isel" data-sel="${esc(c.path)}" ${st.sel.has(c.path) ? 'checked' : ''} title="Sélectionner">` : '<span class="isel-sp"></span>'}<span class="ic">${iconFor(byId.get(c.path)||c)}</span><span class="nm">${c.archive ? '<span title="Archive miroir">🗄️ </span>' : ''}${hlText(c.name, st.q)}${c.where!=null && (st.results!=null || st.info.kind==='tag' || c.archive) ? ` <small class="where">${esc((w => w === '.' ? '' : w)(c.archive && st.info.mirror ? relWhere(c.where, st.info.mirror.path) : relWhere(c.where, st.info.path)))}</small>` : ''}${c.snippet ? `<small class="snip">…${hlText(c.snippet, st.q)}…</small>` : ''}${descText(c) ? `<small class="snip">${esc(descText(c).slice(0, 220))}</small>` : ''}</span><span class="sz">${c.cloud?'☁️ ':''}${c.kind==='dir'?'':fmtSize(c.size)}</span></div>`).join('')
     : `<div class="empty">${st.info.children.length || (st.info.mirror && st.info.mirror.items.length) ? 'Aucun élément ne correspond aux filtres.' : (st.info.mirror && !st.withArchive ? 'Dossier vide : coche « Inclure l\'archive miroir » pour voir ses médias.' : 'Dossier vide')}</div>`) + '</div>'
     + (list.length > shownList.length ? `<button class="tbtn more-btn" id="moreList">Afficher la suite (${list.length-shownList.length})</button>` : '');
   wireDirView();
@@ -1417,6 +1647,7 @@ function wireDirView(){
     if (c && c.desc && c.desc.url && /\.(url|webloc)$/i.test(c.name)) return window.open(c.desc.url, '_blank', 'noopener');
     if (byId.has(p)) selectNode(p); else openPanel(p);
   });
+  wirePanelDrag(st);
   // miniatures chargées seulement quand elles deviennent visibles
   tileObserver && tileObserver.disconnect();
   tileObserver = new IntersectionObserver(entries => entries.forEach(en => {
@@ -2176,7 +2407,7 @@ $('#tQuit').onclick = async () => {
 };
 document.addEventListener('fullscreenchange', () => { $('#tFull').classList.toggle('on', !!document.fullscreenElement); setTimeout(resizeGraph, 120); });
 $('#pclose').onclick = closePanel;
-function closePanel(){ if (!leaveEditOk()) return; panelPath = null; panelStack = []; $('#pback2').classList.remove('show'); $('#panel').classList.add('hidden'); $('#resizer').classList.add('hidden'); clearHL(); setTimeout(resizeGraph,0); }
+function closePanel(){ if (!leaveEditOk()) return; panelPath = null; panelInfo = null; panelStack = []; $('#pback2').classList.remove('show'); $('#panel').classList.add('hidden'); $('#resizer').classList.add('hidden'); clearHL(); setTimeout(resizeGraph,0); buildTools(); }
 document.addEventListener('keydown', e => {
   if (editState && (e.metaKey || e.ctrlKey) && (e.key==='s' || e.key==='S')){ e.preventDefault(); editSave(); return; }
   if (e.target.tagName==='INPUT' || e.target.tagName==='SELECT' || e.target.tagName==='TEXTAREA'){ return; }
@@ -2283,7 +2514,7 @@ async function showSetup(state){
     document.querySelectorAll('#sTops label[data-l]').forEach(l => {
       const inp = l.querySelector('input'), isA = l.dataset.l === a;
       l.classList.toggle('arch', isA); inp.disabled = isA;
-      l.querySelector('span').textContent = (isA ? '🗄 ' : '') + l.dataset.l;
+      l.querySelector('span').textContent = (isA ? '🗄️ ' : '') + l.dataset.l;
       l.classList.toggle('on', inp.checked && !isA);
     });
     const n = document.querySelectorAll('#sTops input[data-t]:checked:not(:disabled)').length;
