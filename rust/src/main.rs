@@ -104,6 +104,9 @@ fn parse_args() -> Args {
     a
 }
 
+/// mode app : arrêt après 3 h sans aucun signe d'une page (navigateur fermé de force)
+const SILENT_EXIT: f64 = 3.0 * 3600.0;
+
 /// Hermes Map déjà lancé ? Renvoie (port, pid, date de démarrage).
 fn running_instance(port_file: &PathBuf) -> Option<(u16, u32, u64)> {
     let port: u16 = std::fs::read_to_string(port_file).ok()?.trim().parse().ok()?;
@@ -204,13 +207,27 @@ fn main() {
         // mode app : quand plus aucune page n'est ouverte (et que Hermes ne travaille pas), on s'arrête
         let a = app.clone();
         let idle = args.idle_exit as f64;
+        // On s'arrête quand la dernière page s'est fermée (elle l'annonce), pas sur un simple silence :
+        // un onglet en arrière-plan ou un Mac en veille n'envoie plus rien pendant un moment.
         std::thread::spawn(move || {
             let started = util::now();
+            let mut prev = started;
             loop {
                 std::thread::sleep(Duration::from_secs(15));
+                let now = util::now();
+                if now - prev > 60.0 {
+                    // le Mac sortait de veille : on repart de zéro
+                    let mut lp = a.last_ping.lock().unwrap();
+                    if *lp > 0.0 {
+                        *lp = now;
+                    }
+                }
+                prev = now;
                 let last = *a.last_ping.lock().unwrap();
-                let since = util::now() - if last > 0.0 { last } else { started };
-                if !a.busy() && since > idle.max(if last > 0.0 { 60.0 } else { 300.0 }) {
+                let bye = *a.last_bye.lock().unwrap();
+                let closed = last > 0.0 && bye > last && now - bye > idle.max(60.0);
+                let silent = if last > 0.0 { now - last > SILENT_EXIT } else { now - started > 600.0 };
+                if !a.busy() && (closed || silent) {
                     println!("Plus aucune fenêtre ouverte : arrêt de Hermes Map.");
                     cleanup_and_exit(0);
                 }

@@ -94,6 +94,8 @@ main{position:relative;display:flex;min-height:0}
 #toolbox .tmsg .tbtn{padding:2px 7px;font-size:11px}
 #toolbox .tmsg .err{color:var(--danger)}
 #toolbox .hint2{padding:2px 4px 0;font-size:10.5px;color:var(--muted)}
+#srvdown{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:10px;align-items:center;background:#2a1d0c;border:1px solid rgba(245,184,75,.6);color:var(--text);border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:90vw}
+#srvdown .tbtn{padding:4px 10px}
 .droptgt{outline:2px dashed var(--accent)!important;outline-offset:-2px;background:rgba(245,184,75,.08)!important}
 #hmodal .orow{display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer}
 #hmodal .orow.off{opacity:.55;cursor:default}
@@ -381,7 +383,7 @@ details.jl pre{margin:0;border:0;border-top:1px solid var(--line);border-radius:
 <div id="app">
   <header>
     <!-- Version de l'app : changement majeur (fonctionnalité ou correctif important) +0.01, mineur +0.0001 -->
-    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1302</span> <small id="rootPath"></small></div>
+    <div class="brand"><div class="glyph">☤</div>Hermes Map <span class="ver" id="appVersion" title="Version">v0.1402</span> <small id="rootPath"></small></div>
     <div class="search">
       <span class="ico">⌕</span>
       <input id="q" placeholder="Rechercher partout (noms, dossiers, tags)…  ( / )" autocomplete="off">
@@ -565,6 +567,41 @@ const stripPrefix = t => { const p = CFG.zone_prefix || ''; return p && String(t
 const zoneName = g => GROUP_LABELS[g] ? T(GROUP_LABELS[g]) : stripPrefix(g);
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------------- Serveur injoignable : délai maximal et bandeau, au lieu d'un « Chargement… » sans fin ----------------
+const _fetch = window.fetch.bind(window);
+let srvFails = 0;
+window.fetch = (url, opts = {}) => {
+  if (typeof url !== 'string' || !url.startsWith('/api/') || opts.signal) return _fetch(url, opts);
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 60000);
+  return _fetch(url, {...opts, signal: ac.signal}).then(
+    r => { clearTimeout(t); srvFails = 0; return r; },
+    e => { clearTimeout(t); if (url !== '/api/ping' && e.name !== 'AbortError') serverDown(); throw e; });   // délai dépassé ≠ app arrêtée
+};
+function serverDown(){
+  srvFails++;
+  let b = document.getElementById('srvdown');
+  if (!b){
+    b = document.createElement('div'); b.id = 'srvdown';
+    b.innerHTML = `<span>⚠️ ${T("Hermes Map ne répond plus. L'app s'est peut-être arrêtée (Mac en veille, app fermée) : relance-la, puis")}</span><button class="tbtn" id="srvRetry">${T('Réessayer')}</button>`;
+    document.body.appendChild(b);
+    b.querySelector('#srvRetry').onclick = async () => {
+      b.querySelector('#srvRetry').textContent = T('Vérification…');
+      try { const r = await _fetch('/api/ping'); if (!r.ok) throw 0; serverUp(true); }
+      catch(e){ b.querySelector('#srvRetry').textContent = T('Réessayer'); }
+    };
+  }
+}
+function serverUp(reload){
+  const b = document.getElementById('srvdown');
+  if (!b) return;
+  b.remove();
+  srvFails = 0;
+  // l'app a pu redémarrer avec un nouveau jeton : on recharge la page pour repartir proprement
+  if (reload) location.reload();
+  else if (panelPath !== null) openPanel(panelPath, {back: true, restore: {scroll: $('#pbody').scrollTop}});
+}
 const normTxt = t => String(t||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 const relWhere = (where, base) => { if (!base) return where || '/'; return where===base ? '.' : where.startsWith(base+'/') ? '…/' + where.slice(base.length+1) : where; };
 function hlText(text, q){
@@ -1004,8 +1041,14 @@ async function openPanel(path, opts={}){
   setTimeout(resizeGraph, 0);
   const body = $('#pbody');
   body.innerHTML = '<div class="empty">Chargement…</div>';
-  const r = await fetch('/api/node?path=' + encodeURIComponent(path));
-  const info = await r.json();
+  let info;
+  try { info = await (await fetch('/api/node?path=' + encodeURIComponent(path))).json(); }
+  catch(e){
+    body.innerHTML = `<div class="err">${T("Pas de réponse de Hermes Map pour ce fichier (app arrêtée, ou fichier iCloud long à télécharger).")} <button class="tbtn" id="pRetry">${T('Réessayer')}</button></div>`;
+    $('#pRetry').onclick = () => openPanel(path, {back: true});
+    return;
+  }
+  if (panelPath !== path) return;     // un autre clic est passé entre-temps
   if (info.error){ body.innerHTML = `<div class="err">${esc(info.error)}</div>`; return; }
   const node = byId.get(path||'/') || {kind:info.kind};
   const k0 = info.kind;
@@ -2631,7 +2674,15 @@ if (window.HM_STALE){
 }
 load();
 // battement de cœur : tant qu'une page est ouverte, l'app reste allumée (elle s'éteint seule ensuite)
-setInterval(() => fetch('/api/ping').catch(()=>{}), 20000); fetch('/api/ping').catch(()=>{});
+// signe de vie toutes les 20 s, et tout de suite quand la page redevient visible ; à la fermeture, on prévient
+async function ping(){
+  try { const r = await fetch('/api/ping'); if (!r.ok) throw new Error(r.status); serverUp(); }
+  catch(e){ serverDown(); }
+}
+setInterval(ping, 20000); ping();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+window.addEventListener('pageshow', () => ping());
+window.addEventListener('pagehide', () => { try { navigator.sendBeacon('/api/bye'); } catch(e){} });
 })();
 </script>
 </body>

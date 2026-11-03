@@ -58,6 +58,7 @@ MAX_REFS_PER_FILE = 12
 MAX_NODES = 4000          # au-delà, les dossiers trop gros sont résumés
 MAX_CHILDREN = 250        # nb max d'éléments affichés par dossier dans le graphe
 MAX_TEXT = 2_000_000      # taille max lue pour un fichier texte (2 Mo)
+SILENT_EXIT = 3 * 3600   # mode app : arrêt après 3 h sans aucun signe d'une page (navigateur fermé de force)
 EDITABLE_KINDS = ("markdown", "json", "config", "text")   # fichiers modifiables dans le panneau
 SCAN_TEXT_LIMIT = 400_000 # taille max analysée pour trouver des liens
 
@@ -791,6 +792,7 @@ class App:
         self.opts = opts or {}         # options de la ligne de commande (all, hidden, hermes, hermes_args, no_hermes)
         self.runner = None
         self.last_ping = 0.0
+        self.last_bye = 0.0            # la page signale sa fermeture (onglet fermé, rechargement)
         self.video = media_tools.VideoConverter()
         self.root = None
         self.scanner = None
@@ -1187,6 +1189,10 @@ def make_handler(app: App):
             if not self.host_ok():
                 return self.send_json({"error": "adresse refusée"}, 403)
             u = urlparse(self.path)
+            if u.path == "/api/bye":
+                # envoyé par la page quand elle se ferme (sendBeacon : sans jeton, ne fait que noter l'heure)
+                app.last_bye = time.time()
+                return self.send_json({"ok": True})
             try:
                 if self.headers.get("X-HM-Token") != TOKEN:
                     return self.send_json({"error": "jeton invalide : recharge la page"}, 403)
@@ -1544,11 +1550,19 @@ def main():
         started = time.time()
 
         def watchdog():
+            # On s'arrête quand la dernière page s'est fermée (elle l'annonce), pas sur un simple silence :
+            # un onglet en arrière-plan ou un Mac en veille n'envoie plus rien pendant un moment.
+            prev = time.time()
             while True:
                 time.sleep(15)
+                now = time.time()
+                if now - prev > 60:                 # le Mac sortait de veille : on repart de zéro
+                    app.last_ping = max(app.last_ping, now) if app.last_ping else 0.0
+                prev = now
                 busy = bool(app.runner and app.runner.job and app.runner.job.state in ("preparing", "running"))
-                last = app.last_ping or started
-                if not busy and time.time() - last > max(args.idle_exit, 60 if app.last_ping else 300):
+                closed = app.last_bye > app.last_ping > 0 and now - app.last_bye > max(args.idle_exit, 60)
+                silent = now - app.last_ping > SILENT_EXIT if app.last_ping else now - started > 600
+                if not busy and (closed or silent):
                     print("Plus aucune fenêtre ouverte : arrêt de Hermes Map.")
                     if args.port_file:
                         try:
