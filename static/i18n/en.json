@@ -437,7 +437,8 @@
   "un élément porte déjà ce nom ici": "an item with this name already exists here",
   "Hermes Map ne répond plus. L'app s'est peut-être arrêtée (Mac en veille, app fermée) : relance-la, puis": "Hermes Map is not responding. The app may have stopped (Mac asleep, app closed): restart it, then",
   "Vérification…": "Checking…",
-  "Pas de réponse de Hermes Map pour ce fichier (app arrêtée, ou fichier iCloud long à télécharger).": "No response from Hermes Map for this file (app stopped, or an iCloud file that is slow to download)."
+  "Pas de réponse de Hermes Map pour ce fichier (app arrêtée, ou fichier iCloud long à télécharger).": "No response from Hermes Map for this file (app stopped, or an iCloud file that is slow to download).",
+  "Connexion à Hermes Map…": "Connecting to Hermes Map…"
  },
  "patterns": {
   "(sur {0})": "(of {0})",
@@ -540,7 +541,10 @@
   "retiré de {0}": "removed from {0}",
   "{0} mis à jour": "{0} updated",
   "{0} lien(s) recalculé(s) dans la note déplacée {1}": "{0} link(s) recomputed in the moved note {1}",
-  "{0} chemin(s) cité(s) mis à jour dans {1}": "{0} quoted path(s) updated in {1}"
+  "{0} chemin(s) cité(s) mis à jour dans {1}": "{0} quoted path(s) updated in {1}",
+  "Hermes Map ne répond plus depuis {0} : clic pour revérifier": "Hermes Map has not responded since {0}: click to check again",
+  "Réponse lente : {0} demande(s) en attente depuis plus de 5 s (fichier iCloud en téléchargement ?)": "Slow response: {0} request(s) waiting for more than 5 s (iCloud file downloading?)",
+  "Hermes Map actif : dernière réponse il y a {0} s": "Hermes Map running: last response {0} s ago"
  },
  "same": [
   "\" placeholder=\"fichiers .md de conventions, ex. Accueil/CONVENTIONS.md\">",
