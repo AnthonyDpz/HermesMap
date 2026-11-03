@@ -59,6 +59,8 @@ pub struct App {
     scanning: AtomicBool,
     gen: AtomicUsize,
     pub last_ping: Mutex<f64>,
+    /// la page signale sa fermeture (onglet fermé, rechargement)
+    pub last_bye: Mutex<f64>,
     pub video: VideoConverter,
 }
 
@@ -89,6 +91,7 @@ impl App {
             scanning: AtomicBool::new(false),
             gen: AtomicUsize::new(0),
             last_ping: Mutex::new(0.0),
+            last_bye: Mutex::new(0.0),
             video: VideoConverter::new(),
         })
     }
@@ -280,6 +283,10 @@ impl App {
         let method = req.method().as_str().to_string();
         let out = if !host_ok {
             jerr("adresse refusée", 403)
+        } else if method == "POST" && path == "/api/bye" {
+            // envoyé par la page quand elle se ferme (sendBeacon : sans jeton, ne fait que noter l'heure)
+            *self.last_bye.lock().unwrap() = now();
+            j(json!({"ok": true}))
         } else if method == "POST" {
             let mut body = String::new();
             let _ = req.as_reader().take(50_000_000).read_to_string(&mut body);

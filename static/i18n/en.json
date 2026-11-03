@@ -434,7 +434,10 @@
   "nom vide": "empty name",
   "les notes vont dans le cerveau, pas dans l'archive": "notes go in the notes folders, not in the archive",
   "type inconnu": "unknown type",
-  "un élément porte déjà ce nom ici": "an item with this name already exists here"
+  "un élément porte déjà ce nom ici": "an item with this name already exists here",
+  "Hermes Map ne répond plus. L'app s'est peut-être arrêtée (Mac en veille, app fermée) : relance-la, puis": "Hermes Map is not responding. The app may have stopped (Mac asleep, app closed): restart it, then",
+  "Vérification…": "Checking…",
+  "Pas de réponse de Hermes Map pour ce fichier (app arrêtée, ou fichier iCloud long à télécharger).": "No response from Hermes Map for this file (app stopped, or an iCloud file that is slow to download)."
  },
  "patterns": {
   "(sur {0})": "(of {0})",
