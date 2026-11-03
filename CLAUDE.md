@@ -19,3 +19,4 @@ Historique :
 - v0.1202 : modification des fichiers texte dans le panneau (✎ Modifier, aperçu, Cmd+S, conflit, annulation) — majeur
 - v0.1302 : boîte à outils (＋ Dossier, ＋ Note) et rangement par glisser-déposer note ↔ miroir, index tenus à jour, annulation — majeur
 - v0.1402 : l'app ne s'arrête plus quand l'onglet passe en arrière-plan ou que le Mac dort (arrêt sur fermeture annoncée) ; délai maximal et bandeau « ne répond plus » — majeur (correctif)
+- v0.1403 : voyant d'état à côté de la version (vert actif, orange lent, rouge ne répond plus) — mineur
